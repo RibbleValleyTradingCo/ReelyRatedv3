@@ -38,6 +38,17 @@ interface LogRow {
   admin: AdminProfileSummary | null;
 }
 
+interface ModerationLogFetchRow {
+  id: string;
+  action: string;
+  user_id: string | null;
+  catch_id: string | null;
+  comment_id: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+  admin: AdminProfileSummary | null;
+}
+
 const formatRelative = (value: string) => formatDistanceToNow(new Date(value), { addSuffix: true });
 
 const actionLabels: Record<string, string> = {
@@ -71,7 +82,7 @@ const AdminAuditLog = () => {
 
     const { data, error } = await supabase
       .from("moderation_log")
-      .select("id, action, target_type, target_id, reason, details, created_at, admin:admin_id (id, username)")
+      .select("id, action, user_id, catch_id, comment_id, metadata, created_at, admin:admin_id (id, username)")
       .order("created_at", { ascending: false })
       .limit(500);
 
@@ -81,8 +92,28 @@ const AdminAuditLog = () => {
       return;
     }
 
-    const rows = (data ?? []) as LogRow[];
-    setLogRows(rows);
+    const rows = (data ?? []) as ModerationLogFetchRow[];
+    const normalized = rows.map((row) => {
+      const metadata = row.metadata ?? null;
+      const reason = metadata && typeof metadata["reason"] === "string"
+        ? (metadata["reason"] as string)
+        : "No reason provided";
+      const targetType = row.comment_id ? "comment" : row.catch_id ? "catch" : row.user_id ? "user" : "unknown";
+      const targetId = row.comment_id ?? row.catch_id ?? row.user_id ?? "";
+
+      return {
+        id: row.id,
+        action: row.action,
+        target_type: targetType,
+        target_id: targetId,
+        reason,
+        details: metadata,
+        created_at: row.created_at,
+        admin: row.admin ?? null,
+      } satisfies LogRow;
+    });
+
+    setLogRows(normalized);
     setIsLoading(false);
   }, [user, isAdmin]);
 

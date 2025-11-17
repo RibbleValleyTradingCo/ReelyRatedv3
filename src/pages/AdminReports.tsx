@@ -99,16 +99,17 @@ interface WarningQueryRow {
   severity: string;
   duration_hours: number | null;
   created_at: string;
+  details: string | null;
   admin: { id: string | null; username: string | null } | null;
 }
 
 interface ModerationLogQueryRow {
   id: string;
   action: string;
-  target_type: string;
-  target_id: string;
-  reason: string;
-  details: Record<string, unknown> | null;
+  user_id: string | null;
+  catch_id: string | null;
+  comment_id: string | null;
+  metadata: Record<string, unknown> | null;
   created_at: string;
   admin: { id: string | null; username: string | null } | null;
 }
@@ -323,18 +324,29 @@ const AdminReports = () => {
       const warningsResponse = targetUserId
         ? await supabase
             .from("user_warnings")
-            .select("id, reason, severity, duration_hours, created_at, admin:admin_id (id, username)")
+            .select(
+              "id, reason, details, severity, duration_hours, created_at, admin:issued_by (id, username)",
+            )
             .eq("user_id", targetUserId)
             .order("created_at", { ascending: false })
         : { data: [] as unknown[], error: null };
 
       if (warningsResponse.error) throw warningsResponse.error;
 
-      const historyResponse = await supabase
+      let historyQuery = supabase
         .from("moderation_log")
-        .select("id, action, target_type, target_id, reason, details, created_at, admin:admin_id (id, username)")
-        .eq("target_id", report.target_id)
+        .select("id, action, user_id, catch_id, comment_id, metadata, created_at, admin:admin_id (id, username)")
         .order("created_at", { ascending: false });
+
+      if (report.target_type === "catch") {
+        historyQuery = historyQuery.eq("catch_id", report.target_id);
+      } else if (report.target_type === "comment") {
+        historyQuery = historyQuery.eq("comment_id", report.target_id);
+      } else if (targetUserId) {
+        historyQuery = historyQuery.eq("user_id", targetUserId);
+      }
+
+      const historyResponse = await historyQuery;
 
       if (historyResponse.error) throw historyResponse.error;
 
@@ -346,10 +358,11 @@ const AdminReports = () => {
         const normalizedSeverity = severityOptions.some((option) => option.value === severityValue)
           ? severityValue
           : "warning";
+        const displayedReason = entry.reason || entry.details || "Moderator action";
 
         return {
           id: entry.id,
-          reason: entry.reason,
+          reason: displayedReason,
           severity: normalizedSeverity,
           duration_hours: entry.duration_hours ?? null,
           created_at: entry.created_at,
@@ -357,16 +370,32 @@ const AdminReports = () => {
         } satisfies UserWarningEntry;
       });
 
-      const modHistory = historyRows.map((entry) => ({
-        id: entry.id,
-        action: entry.action,
-        target_type: entry.target_type,
-        target_id: entry.target_id,
-        reason: entry.reason,
-        details: entry.details ?? null,
-        created_at: entry.created_at,
-        admin: entry.admin ?? null,
-      }));
+      const modHistory = historyRows.map((entry) => {
+        const metadata = entry.metadata ?? null;
+        const metadataReason =
+          metadata && typeof metadata["reason"] === "string"
+            ? (metadata["reason"] as string)
+            : "No reason provided";
+        const targetType = entry.comment_id
+          ? "comment"
+          : entry.catch_id
+            ? "catch"
+            : entry.user_id
+              ? "profile"
+              : report.target_type;
+        const targetId = entry.comment_id ?? entry.catch_id ?? entry.user_id ?? report.target_id;
+
+        return {
+          id: entry.id,
+          action: entry.action,
+          target_type: targetType,
+          target_id: targetId ?? report.target_id,
+          reason: metadataReason,
+          details: metadata,
+          created_at: entry.created_at,
+          admin: entry.admin ?? null,
+        } satisfies ModerationLogEntry;
+      });
 
       return {
         targetUserId,
@@ -487,14 +516,14 @@ const AdminReports = () => {
 
       if (selectedReport.target_type === "catch") {
         const { error } = await supabase.rpc("admin_delete_catch", {
-          catch_id: selectedReport.target_id,
-          reason: deleteReason,
+          p_catch_id: selectedReport.target_id,
+          p_reason: deleteReason,
         });
         if (error) throw error;
       } else {
         const { error } = await supabase.rpc("admin_delete_comment", {
-          comment_id: selectedReport.target_id,
-          reason: deleteReason,
+          p_comment_id: selectedReport.target_id,
+          p_reason: deleteReason,
         });
         if (error) throw error;
       }
@@ -523,14 +552,14 @@ const AdminReports = () => {
     try {
       if (selectedReport.target_type === "catch") {
         const { error } = await supabase.rpc("admin_restore_catch", {
-          catch_id: selectedReport.target_id,
-          reason: "Decision overturned",
+          p_catch_id: selectedReport.target_id,
+          p_reason: "Decision overturned",
         });
         if (error) throw error;
       } else {
         const { error } = await supabase.rpc("admin_restore_comment", {
-          comment_id: selectedReport.target_id,
-          reason: "Decision overturned",
+          p_comment_id: selectedReport.target_id,
+          p_reason: "Decision overturned",
         });
         if (error) throw error;
       }
@@ -572,12 +601,12 @@ const AdminReports = () => {
     setIsProcessingAction(true);
     try {
       const payload: Record<string, unknown> = {
-        user_id: details.targetUserId,
-        reason: trimmedReason,
-        severity: warnSeverity,
+        p_user_id: details.targetUserId,
+        p_reason: trimmedReason,
+        p_severity: warnSeverity,
       };
       if (duration !== null) {
-        payload.duration_hours = duration;
+        payload.p_duration_hours = duration;
       }
 
       const { error } = await supabase.rpc("admin_warn_user", payload);

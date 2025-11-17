@@ -376,7 +376,7 @@ Key fields
 • id UUID PK NOT NULL.  
 • user_id UUID NOT NULL – FK → profiles.id (recipient).  
 • actor_id UUID – FK → profiles.id (who triggered it; nullable for system).  
-• type notification_type NOT NULL – e.g. follow, comment, reaction, rating, mention, admin_report, system.  
+• type notification_type NOT NULL – e.g. new_follower, new_comment, new_rating, new_reaction, mention, admin_report, admin_warning, admin_moderation.  
 • message TEXT NOT NULL – rendered text.  
 • catch_id UUID – FK → catches.id (nullable).  
 • comment_id UUID – FK → catch_comments.id (nullable).  
@@ -385,6 +385,11 @@ Key fields
 • read_at TIMESTAMPTZ.  
 • created_at TIMESTAMPTZ NOT NULL DEFAULT now().  
 • deleted_at TIMESTAMPTZ.
+
+Typical extra_data payloads:  
+• admin_warning – `{ severity, duration_hours, warning_id }`.  
+• admin_moderation – `{ action, catch_id?, comment_id?, reason }`.  
+• Other types may include contextual IDs (e.g. catch_id/comment_id for comment/reaction notifications).
 
 Relationships  
 • 1 profile → many notifications (recipient).  

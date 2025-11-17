@@ -25,9 +25,50 @@ const getNotificationTitle = (type: NotificationRow["type"]) => {
       return "Mention";
     case "admin_report":
       return "New report";
+    case "admin_warning":
+      return "Admin warning";
+    case "admin_moderation":
+      return "Admin moderation";
     default:
       return "Notification";
   }
+};
+
+const formatAdminDetails = (
+  notification: NotificationRow,
+  extraData: Record<string, unknown>,
+) => {
+  if (notification.type === "admin_warning") {
+    const severity = typeof extraData.severity === "string" ? extraData.severity : null;
+    const duration =
+      typeof extraData.duration_hours === "number"
+        ? `${extraData.duration_hours}h`
+        : null;
+
+    if (severity && duration) {
+      return `Severity: ${severity}, Duration: ${duration}`;
+    }
+    if (severity) {
+      return `Severity: ${severity}`;
+    }
+    if (duration) {
+      return `Duration: ${duration}`;
+    }
+  }
+
+  if (notification.type === "admin_moderation") {
+    const action = typeof extraData.action === "string" ? extraData.action : null;
+    const reason = typeof extraData.reason === "string" ? extraData.reason : null;
+
+    if (action && reason) {
+      return `${action.replace("_", " ")}: ${reason}`;
+    }
+    if (reason) {
+      return reason;
+    }
+  }
+
+  return null;
 };
 
 export const NotificationListItem = ({
@@ -35,15 +76,18 @@ export const NotificationListItem = ({
   onView,
   onMarkRead,
 }: NotificationListItemProps) => {
-  const data = (notification.data ?? {}) as Record<string, unknown>;
+  const extraData = (notification.extra_data ?? {}) as Record<string, unknown>;
   const message =
-    (typeof data.message === "string" && data.message) || "You have a new notification.";
+    (typeof notification.message === "string" && notification.message.trim().length > 0)
+      ? notification.message
+      : "You have a new notification.";
+  const adminDetail = formatAdminDetails(notification, extraData);
   const timeAgo = formatDistanceToNow(new Date(notification.created_at), {
     addSuffix: true,
   });
   const actorUsername =
-    typeof data.actor_username === "string" && data.actor_username.trim().length > 0
-      ? data.actor_username
+    typeof extraData.actor_username === "string" && extraData.actor_username.trim().length > 0
+      ? extraData.actor_username
       : null;
 
   return (
@@ -65,6 +109,9 @@ export const NotificationListItem = ({
             {actorUsername ? " · " : null}
             {message}
           </p>
+          {adminDetail ? (
+            <p className="text-xs text-muted-foreground mt-1">{adminDetail}</p>
+          ) : null}
           <p className="mt-1 text-xs text-muted-foreground">{timeAgo}</p>
         </div>
         <div className="flex flex-col items-end gap-1">

@@ -289,6 +289,75 @@ export type Database = {
           },
         ]
       }
+      moderation_log: {
+        Row: {
+          action: Database["public"]["Enums"]["mod_action"]
+          admin_id: string | null
+          catch_id: string | null
+          comment_id: string | null
+          created_at: string
+          id: string
+          metadata: Json | null
+          user_id: string | null
+        }
+        Insert: {
+          action: Database["public"]["Enums"]["mod_action"]
+          admin_id?: string | null
+          catch_id?: string | null
+          comment_id?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: Database["public"]["Enums"]["mod_action"]
+          admin_id?: string | null
+          catch_id?: string | null
+          comment_id?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "moderation_log_admin_id_fkey"
+            columns: ["admin_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "moderation_log_catch_id_fkey"
+            columns: ["catch_id"]
+            isOneToOne: false
+            referencedRelation: "catches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "moderation_log_catch_id_fkey"
+            columns: ["catch_id"]
+            isOneToOne: false
+            referencedRelation: "leaderboard_scores_detailed"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "moderation_log_comment_id_fkey"
+            columns: ["comment_id"]
+            isOneToOne: false
+            referencedRelation: "catch_comments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "moderation_log_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           actor_id: string | null
@@ -457,6 +526,35 @@ export type Database = {
         }
         Relationships: []
       }
+      rate_limits: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rate_limits_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ratings: {
         Row: {
           catch_id: string
@@ -497,6 +595,63 @@ export type Database = {
           {
             foreignKeyName: "ratings_user_id_fkey"
             columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reports: {
+        Row: {
+          created_at: string
+          details: string | null
+          id: string
+          reason: string
+          reporter_id: string
+          resolution_notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: Database["public"]["Enums"]["report_status"]
+          target_id: string
+          target_type: Database["public"]["Enums"]["report_target_type"]
+        }
+        Insert: {
+          created_at?: string
+          details?: string | null
+          id?: string
+          reason: string
+          reporter_id: string
+          resolution_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["report_status"]
+          target_id: string
+          target_type: Database["public"]["Enums"]["report_target_type"]
+        }
+        Update: {
+          created_at?: string
+          details?: string | null
+          id?: string
+          reason?: string
+          reporter_id?: string
+          resolution_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["report_status"]
+          target_id?: string
+          target_type?: Database["public"]["Enums"]["report_target_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reports_reporter_id_fkey"
+            columns: ["reporter_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reports_reviewed_by_fkey"
+            columns: ["reviewed_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -574,6 +729,54 @@ export type Database = {
         }
         Relationships: []
       }
+      user_warnings: {
+        Row: {
+          created_at: string
+          details: string | null
+          duration_hours: number | null
+          id: string
+          issued_by: string | null
+          reason: string
+          severity: Database["public"]["Enums"]["warning_severity"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          details?: string | null
+          duration_hours?: number | null
+          id?: string
+          issued_by?: string | null
+          reason: string
+          severity?: Database["public"]["Enums"]["warning_severity"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          details?: string | null
+          duration_hours?: number | null
+          id?: string
+          issued_by?: string | null
+          reason?: string
+          severity?: Database["public"]["Enums"]["warning_severity"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_warnings_issued_by_fkey"
+            columns: ["issued_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_warnings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       water_types: {
         Row: {
           code: string
@@ -643,7 +846,7 @@ export type Database = {
         Returns: undefined
       }
       admin_delete_comment: {
-        Args: { p_comment_id: string; p_reason?: string }
+        Args: { p_comment_id: string; p_reason: string }
         Returns: undefined
       }
       admin_restore_catch: {
@@ -651,7 +854,7 @@ export type Database = {
         Returns: undefined
       }
       admin_restore_comment: {
-        Args: { p_comment_id: string; p_reason?: string }
+        Args: { p_comment_id: string; p_reason: string }
         Returns: undefined
       }
       admin_warn_user: {

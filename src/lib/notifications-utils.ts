@@ -16,8 +16,38 @@ export const resolveNotificationPath = (notification: NotificationRow): string |
     "new_rating",
   ]);
 
-  if (catchTypes.has(notification.type) && notification.catch_id) {
-    return `/catch/${notification.catch_id}`;
+  const catchIdFromExtra =
+    typeof extraData.catch_id === "string" && extraData.catch_id.length > 0
+      ? extraData.catch_id
+      : null;
+  const commentIdFromExtra =
+    typeof extraData.comment_id === "string" && extraData.comment_id.length > 0
+      ? extraData.comment_id
+      : null;
+
+  if (notification.type === "admin_moderation") {
+    const targetCatchId = notification.catch_id ?? catchIdFromExtra;
+    if (targetCatchId) {
+      return `/catch/${targetCatchId}`;
+    }
+
+    const commentCatchId = catchIdFromExtra;
+    if (commentCatchId) {
+      return `/catch/${commentCatchId}`;
+    }
+
+    return getProfilePath({ id: notification.user_id });
+  }
+
+  if (notification.type === "admin_warning") {
+    return getProfilePath({ id: notification.user_id });
+  }
+
+  if (catchTypes.has(notification.type)) {
+    const catchId = notification.catch_id ?? catchIdFromExtra;
+    if (catchId) {
+      return `/catch/${catchId}`;
+    }
   }
 
   if (notification.actor_id) {
