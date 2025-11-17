@@ -521,6 +521,10 @@ const AdminReports = () => {
         });
         if (error) throw error;
       } else {
+        console.debug("admin_delete_comment payload", {
+          reportId: selectedReport.id,
+          targetId: selectedReport.target_id,
+        });
         const { error } = await supabase.rpc("admin_delete_comment", {
           p_comment_id: selectedReport.target_id,
           p_reason: deleteReason,
@@ -534,8 +538,12 @@ const AdminReports = () => {
       const refreshed = await fetchReportDetails(selectedReport);
       setDetails(refreshed);
     } catch (error) {
-      console.error(error);
-      toast.error("Unable to delete content");
+      console.error("admin_delete_comment failed", error);
+      const errorMessage =
+        error && typeof error === "object" && "message" in error && typeof error.message === "string"
+          ? error.message
+          : "Unable to delete content";
+      toast.error(errorMessage);
     } finally {
       setIsProcessingAction(false);
       setShowDeleteConfirm(false);
@@ -557,6 +565,10 @@ const AdminReports = () => {
         });
         if (error) throw error;
       } else {
+        console.debug("admin_restore_comment payload", {
+          reportId: selectedReport.id,
+          targetId: selectedReport.target_id,
+        });
         const { error } = await supabase.rpc("admin_restore_comment", {
           p_comment_id: selectedReport.target_id,
           p_reason: "Decision overturned",
@@ -569,8 +581,12 @@ const AdminReports = () => {
       const refreshed = await fetchReportDetails(selectedReport);
       setDetails(refreshed);
     } catch (error) {
-      console.error(error);
-      toast.error("Unable to restore content");
+      console.error("admin_restore_comment failed", error);
+      const errorMessage =
+        error && typeof error === "object" && "message" in error && typeof error.message === "string"
+          ? error.message
+          : "Unable to restore content";
+      toast.error(errorMessage);
     } finally {
       setIsProcessingAction(false);
     }

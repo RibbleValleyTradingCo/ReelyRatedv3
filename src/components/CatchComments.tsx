@@ -85,8 +85,11 @@ export const CatchComments = memo(({ catchId, catchOwnerId, catchTitle, currentU
     setIsLoading(true);
     const { data, error } = await supabase
       .from("catch_comments")
-      .select("id, body, created_at, user_id, profiles:user_id (id, username, avatar_path, avatar_url)")
+      .select(
+        "id, body, created_at, user_id, profiles:user_id (id, username, avatar_path, avatar_url)",
+      )
       .eq("catch_id", catchId)
+      .is("deleted_at", null)
       .order("created_at", { ascending: false });
 
     if (error) {

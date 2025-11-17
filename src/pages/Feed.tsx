@@ -97,6 +97,7 @@ const Feed = () => {
           reactions:catch_reactions (user_id)
         `)
         .is("deleted_at", null)
+        .is("comments.deleted_at", null)
         .order("created_at", { ascending: false });
 
       if (error) {
