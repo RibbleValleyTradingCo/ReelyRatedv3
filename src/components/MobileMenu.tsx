@@ -25,8 +25,8 @@ interface MobileMenuProps {
   user?: {
     id: string;
     username?: string | null;
-    isAdmin?: boolean;
   } | null;
+  isAdmin?: boolean;
   onNavigate?: () => void;
   onSignIn?: () => void;
 }
@@ -45,7 +45,7 @@ export const MOBILE_MENU_ID = "navigation-drawer";
 const menuItemClasses =
   "flex w-full items-center gap-3 rounded-lg px-3 py-3 text-base font-medium min-h-[44px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2";
 
-export const MobileMenu = ({ open, onClose, user, onSignOut, onSignIn, onNavigate }: MobileMenuProps) => {
+export const MobileMenu = ({ open, onClose, user, onSignOut, onSignIn, onNavigate, isAdmin }: MobileMenuProps) => {
   useEffect(() => {
     if (typeof document === "undefined" || typeof window === "undefined") {
       return;
@@ -150,21 +150,20 @@ export const MobileMenu = ({ open, onClose, user, onSignOut, onSignIn, onNavigat
       ]
     : [];
 
-  const adminItems: MenuItem[] =
-    user?.isAdmin
-      ? [
-          {
-            label: "Reports",
-            to: "/admin/reports",
-            icon: FileWarning,
-          },
-          {
-            label: "Audit Log",
-            to: "/admin/audit-log",
-            icon: ClipboardList,
-          },
-        ]
-      : [];
+  const adminItems: MenuItem[] = isAdmin
+    ? [
+        {
+          label: "Reports",
+          to: "/admin/reports",
+          icon: FileWarning,
+        },
+        {
+          label: "Audit Log",
+          to: "/admin/audit-log",
+          icon: ClipboardList,
+        },
+      ]
+    : [];
 
   return createPortal(
     <div id={MOBILE_MENU_ID} className="fixed inset-0 z-[60]">

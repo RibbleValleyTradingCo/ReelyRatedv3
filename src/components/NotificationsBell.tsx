@@ -4,7 +4,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/components/AuthProvider";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { useNavigate } from "react-router-dom";
 import { useNotifications } from "@/hooks/useNotifications";
 import { NotificationListItem, type NotificationRow } from "@/components/notifications/NotificationListItem";
@@ -154,7 +153,7 @@ export const NotificationsBell = ({
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80 p-0 z-30" align="end">
+      <PopoverContent className="z-[70] w-80 p-0" align="end">
         <div className="border-b px-4 py-3 space-y-2">
           <div className="flex items-center justify-between gap-2">
             <p className="text-sm font-semibold text-foreground">Notifications</p>
@@ -212,7 +211,7 @@ export const NotificationsBell = ({
               You’re all caught up!
             </div>
           ) : (
-            <ScrollArea className="max-h-80 pr-2">
+            <div className="max-h-[60vh] overflow-y-auto pr-2">
               <div className="space-y-3">
                 {notifications.map((notification) => (
                   <NotificationListItem
@@ -223,7 +222,7 @@ export const NotificationsBell = ({
                   />
                 ))}
               </div>
-            </ScrollArea>
+            </div>
           )}
         </div>
       </PopoverContent>

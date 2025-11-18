@@ -10,6 +10,17 @@ import { isAdminUser } from "@/lib/admin";
 import LogoMark from "@/components/LogoMark";
 import { MobileMenu, MOBILE_MENU_ID } from "@/components/MobileMenu";
 import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { resolveAvatarUrl } from "@/lib/storage";
+import { getProfilePath } from "@/lib/profile";
 
 export const Navbar = () => {
   const { user, isAuthReady, signOut } = useAuth();
@@ -17,6 +28,9 @@ export const Navbar = () => {
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileUsername, setProfileUsername] = useState<string | null>(null);
+  const [avatarPath, setAvatarPath] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const isOnSearchRoute = location.pathname.startsWith("/search");
 
   useEffect(() => {
@@ -28,23 +42,50 @@ export const Navbar = () => {
 
     if (!user) {
       setProfileUsername(null);
+      setAvatarPath(null);
+      setAvatarUrl(null);
+      setIsAdmin(false);
       return () => {
         active = false;
       };
     }
 
-    supabase
-      .from("profiles")
-      .select("username")
-      .eq("id", user.id)
-      .maybeSingle()
-      .then(({ data, error }) => {
-        if (!active) return;
-        if (error) {
-          console.error("Failed to load profile username", error);
+    const fetchProfileAndAdmin = async () => {
+      try {
+        const [{ data, error }] = await Promise.all([
+          supabase
+            .from("profiles")
+            .select("username, avatar_path, avatar_url")
+            .eq("id", user.id)
+            .maybeSingle(),
+        ]);
+
+        if (active) {
+          if (error) {
+            console.error("Failed to load profile details", error);
+          }
+          setProfileUsername(data?.username ?? user.user_metadata?.username ?? null);
+          setAvatarPath(data?.avatar_path ?? null);
+          setAvatarUrl(data?.avatar_url ?? null);
         }
-        setProfileUsername(data?.username ?? user.user_metadata?.username ?? null);
-      });
+      } catch (error) {
+        console.error("Failed to fetch profile", error);
+      }
+
+      try {
+        const adminStatus = await isAdminUser(user.id);
+        if (active) {
+          setIsAdmin(adminStatus);
+        }
+      } catch (error) {
+        console.error("Failed to determine admin status", error);
+        if (active) {
+          setIsAdmin(false);
+        }
+      }
+    };
+
+    void fetchProfileAndAdmin();
 
     return () => {
       active = false;
@@ -85,6 +126,14 @@ export const Navbar = () => {
   const iconSvgBase =
     "h-5 w-5 text-slate-600 transition-colors group-hover:text-primary md:h-6 md:w-6";
 
+  const avatarDisplayName =
+    profileUsername ?? user?.user_metadata?.username ?? user?.email ?? user?.user_metadata?.full_name ?? "";
+
+  const profileLink =
+    user != null ? getProfilePath({ username: profileUsername ?? undefined, id: user.id }) : "/profile";
+
+  const resolvedAvatarUrl = resolveAvatarUrl({ path: avatarPath, legacyUrl: avatarUrl });
+
   const renderAuthIcons = () => (
     <div className="flex items-center gap-3 md:gap-4">
       <button
@@ -101,6 +150,58 @@ export const Navbar = () => {
       </button>
 
       <NotificationsBell />
+
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+            aria-label="Account menu"
+          >
+            <Avatar className="h-10 w-10">
+              <AvatarImage src={resolvedAvatarUrl ?? undefined} alt={avatarDisplayName || "Profile"} />
+              <AvatarFallback className="bg-primary/10 text-sm font-semibold text-primary">
+                {avatarDisplayName
+                  .split(" ")
+                  .map((segment) => segment.charAt(0))
+                  .join("")
+                  .slice(0, 2)
+                  .toUpperCase() || "RR"}
+              </AvatarFallback>
+            </Avatar>
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="min-w-[220px]">
+          <DropdownMenuLabel>
+            Signed in as
+            <span className="block text-sm font-semibold text-foreground">{avatarDisplayName || "Angler"}</span>
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={() => navigate(profileLink)}>
+            View profile
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => navigate("/settings/profile")}>
+            Profile settings
+          </DropdownMenuItem>
+          {isAdmin ? (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Admin</DropdownMenuLabel>
+              <DropdownMenuItem onSelect={() => navigate("/admin/reports")}>Admin reports</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => navigate("/admin/audit-log")}>Audit log</DropdownMenuItem>
+            </>
+          ) : null}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onSelect={(event) => {
+              event.preventDefault();
+              void handleSignOut();
+            }}
+          >
+            Sign out
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       <button
         type="button"
@@ -186,8 +287,8 @@ export const Navbar = () => {
           user={{
             id: user.id,
             username: profileUsername ?? user.user_metadata?.username ?? null,
-            isAdmin: isAdminUser(user.id),
           }}
+          isAdmin={isAdmin}
           onSignOut={handleSignOut}
         />
       ) : null}

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -17,6 +17,7 @@ import { signInSchema, signUpSchema, type SignInFormData, type SignUpFormData } 
 const Auth = () => {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   // Sign In Form
   const signInForm = useForm<SignInFormData>({
@@ -104,17 +105,22 @@ const Auth = () => {
   };
 
   const handleGoogleSignIn = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${import.meta.env.VITE_APP_URL || window.location.origin}/`,
-      },
-    });
+    try {
+      setIsGoogleLoading(true);
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: window.location.origin,
+        },
+      });
 
-    if (error) {
-      toast.error(error.message);
-    } else {
-      toast.message("Redirecting to Google…");
+      if (error) {
+        toast.error(error.message ?? "Unable to sign in with Google.");
+        setIsGoogleLoading(false);
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to sign in with Google.");
+      setIsGoogleLoading(false);
     }
   };
 
@@ -182,9 +188,10 @@ const Auth = () => {
                 variant="outline"
                 className="w-full flex items-center justify-center gap-2"
                 onClick={handleGoogleSignIn}
+                disabled={isGoogleLoading}
               >
                 <Chrome className="h-4 w-4" />
-                Continue with Google
+                {isGoogleLoading ? "Opening Google…" : "Continue with Google"}
               </Button>
             </TabsContent>
             <TabsContent value="signup">

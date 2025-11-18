@@ -243,6 +243,103 @@ const Insights = () => {
     methodData,
     speciesBarData,
   } = useInsightsChartData({ filteredCatches, sessions, stats });
+  const topVenue = venueLeaderboard[0] ?? null;
+
+  const presetLabelMap: Record<DatePreset, string> = {
+    all: "All time",
+    "last-30": "Last 30 days",
+    season: "This season",
+    "last-session": "Last logged session",
+    custom: "Custom range",
+  };
+
+  const customRangeDescription = customRange?.from
+    ? customRange?.to
+      ? `${customRange.from.toLocaleDateString()} – ${customRange.to.toLocaleDateString()}`
+      : `${customRange.from.toLocaleDateString()} onward`
+    : "Custom range";
+
+  const rangeDescriptor =
+    datePreset === "custom" ? customRangeDescription : presetLabelMap[datePreset] ?? "Selected range";
+
+  const summaryParts: string[] =
+    stats.totalCatches > 0
+      ? [`${stats.totalCatches} catch${stats.totalCatches === 1 ? "" : "es"}`]
+      : [];
+
+  if (stats.pbCatch?.label) {
+    summaryParts.push(`PB ${stats.pbCatch.label}`);
+  }
+  if (mostCommonSpecies) {
+    summaryParts.push(`mostly ${mostCommonSpecies}`);
+  }
+  if (topVenue) {
+    summaryParts.push(`best at ${topVenue.name}`);
+  }
+
+  const headlineSummary =
+    stats.totalCatches > 0
+      ? `${rangeDescriptor}: ${summaryParts.join(" · ")}`
+      : `No catches recorded in ${rangeDescriptor.toLowerCase()} yet.`;
+
+  const peakMonthEntry =
+    monthlyCounts.length > 0
+      ? monthlyCounts.reduce((best, entry) => (entry.count > (best?.count ?? 0) ? entry : best), monthlyCounts[0])
+      : null;
+
+  const catchTrendSummary = peakMonthEntry
+    ? `Peak month: ${peakMonthEntry.label} (${peakMonthEntry.count} catch${peakMonthEntry.count === 1 ? "" : "es"})`
+    : "No monthly data yet.";
+
+  const totalTimeOfDayCatches = timeOfDayData.reduce((sum, item) => sum + item.catches, 0);
+  const topTimeOfDayBucket =
+    timeOfDayData.length > 0
+      ? timeOfDayData.reduce(
+          (best, entry) => (entry.catches > (best?.catches ?? 0) ? entry : best),
+          timeOfDayData[0],
+        )
+      : null;
+  const showTimeOfDayChart = totalTimeOfDayCatches >= 3 && timeOfDayData.length > 0;
+  const timeOfDaySummary = topTimeOfDayBucket
+    ? `Most fish landed during ${topTimeOfDayBucket.label.toLowerCase()} hours.`
+    : null;
+
+  const speciesFooter =
+    speciesBarData.length > 0 ? (
+      <div className="space-y-1 text-xs text-muted-foreground">
+        <p className="text-sm font-medium text-foreground">Top species</p>
+        <ul className="space-y-0.5">
+          {speciesBarData.slice(0, 3).map((item) => (
+            <li key={item.label}>
+              {item.label} · {item.catches} catch{item.catches === 1 ? "" : "es"}
+            </li>
+          ))}
+        </ul>
+      </div>
+    ) : undefined;
+
+  const baitFooter =
+    baitData.length > 0 ? (
+      <div className="space-y-1 text-xs text-muted-foreground">
+        <p className="text-sm font-medium text-foreground">Top baits</p>
+        <ul className="space-y-0.5">
+          {baitData.slice(0, 3).map((item) => (
+            <li key={item.label}>
+              {item.label} · {item.catches} strike{item.catches === 1 ? "" : "s"}
+            </li>
+          ))}
+        </ul>
+      </div>
+    ) : undefined;
+
+  const topMethod = methodData[0];
+  const methodFooter = topMethod
+    ? `Most fish landed on: ${topMethod.label} (${topMethod.catches} catch${topMethod.catches === 1 ? "" : "es"})`
+    : undefined;
+
+  const topVenueHighlight = topVenue
+    ? `Top venue: ${topVenue.name} (${topVenue.count} catch${topVenue.count === 1 ? "" : "es"})`
+    : null;
 
   const sessionsDisabled = sessionOptions.length === 0;
   const showLastSessionHint = datePreset === "last-session" && !latestSessionId;
@@ -351,6 +448,8 @@ const Insights = () => {
               showLastSessionHint={showLastSessionHint}
             />
 
+            <div className="mb-4 text-sm text-muted-foreground sm:text-base">{headlineSummary}</div>
+
             {error ? (
               <Card className="mb-6 border-destructive/30 bg-destructive/10 text-destructive">
                 <CardContent className="py-6">
@@ -369,7 +468,7 @@ const Insights = () => {
               </Card>
             ) : (
               <>
-                <section className="space-y-6">
+                <section className="mt-6 space-y-6 lg:space-y-8">
                   <div className="space-y-2">
                     <h2 className="text-xl font-semibold text-foreground">Highlights</h2>
                     <p className="text-sm text-muted-foreground">
@@ -388,7 +487,7 @@ const Insights = () => {
                   />
                 </section>
 
-                <section className="space-y-6">
+                <section className="mt-10 space-y-6 lg:space-y-8">
                   <div className="space-y-2">
                     <h2 className="text-xl font-semibold text-foreground">Catch trends</h2>
                     <p className="text-sm text-muted-foreground">
@@ -402,6 +501,7 @@ const Insights = () => {
                       description="Monthly totals for the selected range."
                       isEmpty={monthlyCounts.length === 0}
                       emptyMessage="Add more catches to reveal the timeline."
+                      footer={peakMonthEntry ? catchTrendSummary : undefined}
                     >
                       <TrendLineChart
                         data={trendLineData}
@@ -415,8 +515,9 @@ const Insights = () => {
                       icon={BarChart3}
                       title="Time of day performance"
                       description="Track when your catches most often happen."
-                      isEmpty={stats.timeOfDayCounts.length === 0}
-                      emptyMessage="Add more catches to see trends."
+                      isEmpty={!showTimeOfDayChart}
+                      emptyMessage="Not enough data yet. Log a few more catches to unlock this view."
+                      footer={showTimeOfDayChart ? timeOfDaySummary : undefined}
                     >
                       <DistributionBarChart
                         data={timeOfDayData}
@@ -428,7 +529,7 @@ const Insights = () => {
                   </div>
                 </section>
 
-                <section className="space-y-6">
+                <section className="mt-10 space-y-6 lg:space-y-8">
                   <div className="space-y-2">
                     <h2 className="text-xl font-semibold text-foreground">Species & baits</h2>
                     <p className="text-sm text-muted-foreground">
@@ -443,11 +544,7 @@ const Insights = () => {
                       description="Top species landed during this period."
                       isEmpty={speciesChartData.length === 0}
                       emptyMessage="No species data available for this view."
-                      footer={
-                        mostCommonSpecies
-                          ? `Top species: ${mostCommonSpecies} (${mostCommonSpeciesCount} catches)`
-                          : undefined
-                      }
+                      footer={speciesFooter}
                     >
                       <DistributionBarChart
                         data={speciesBarData}
@@ -466,6 +563,7 @@ const Insights = () => {
                       description="The lures and baits that seal the deal most often."
                       isEmpty={stats.baitCounts.length === 0}
                       emptyMessage="No bait data logged yet."
+                      footer={baitFooter}
                     >
                       <DistributionBarChart
                         data={baitData}
@@ -479,7 +577,7 @@ const Insights = () => {
                   </div>
                 </section>
 
-                <section className="space-y-6">
+                <section className="mt-10 space-y-6 lg:space-y-8">
                   <div className="space-y-2">
                     <h2 className="text-xl font-semibold text-foreground">Techniques & venues</h2>
                     <p className="text-sm text-muted-foreground">
@@ -493,13 +591,14 @@ const Insights = () => {
                     description="Compare which techniques deliver the goods."
                     isEmpty={stats.methodCounts.length === 0}
                     emptyMessage="No method data captured yet."
+                    footer={methodFooter}
                   >
                     <DistributionBarChart
                       data={methodData}
                       theme={nivoTheme}
                       color={primaryColor}
                       gradientId={methodGradientId}
-                      height="h-72"
+                      height="h-64"
                       tickRotation={-20}
                     />
                   </ChartCard>
@@ -515,6 +614,7 @@ const Insights = () => {
                     averagePerSessionLabel={averagePerSessionLabel}
                     sessionSummaries={sessionSummaries}
                     topSession={topSession}
+                    topVenueHighlight={topVenueHighlight}
                   />
                 </section>
               </>

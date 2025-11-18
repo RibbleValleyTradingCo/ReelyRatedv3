@@ -25,6 +25,7 @@ interface InfoCardsProps {
   averagePerSessionLabel: string;
   sessionSummaries: SessionSummary[];
   topSession: SessionSummary | null;
+  topVenueHighlight?: string | null;
 }
 
 export const InfoCards = memo(({
@@ -38,6 +39,7 @@ export const InfoCards = memo(({
   averagePerSessionLabel,
   sessionSummaries,
   topSession,
+  topVenueHighlight,
 }: InfoCardsProps) => {
   return (
     <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -84,9 +86,15 @@ export const InfoCards = memo(({
           <p className="text-sm text-muted-foreground">Where you're finding the most success.</p>
         </CardHeader>
         <CardContent>
-          {venueLeaderboard.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No venue data captured for this view.</p>
-          ) : (
+        {venueLeaderboard.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Log catches at different venues to start this leaderboard.
+          </p>
+        ) : (
+          <>
+            {topVenueHighlight ? (
+              <p className="mb-3 text-sm font-medium text-foreground">{topVenueHighlight}</p>
+            ) : null}
             <ol className="space-y-2 text-sm">
               {venueLeaderboard.map((venue, index) => (
                 <li key={venue.name} className="flex items-center justify-between gap-4">
@@ -99,9 +107,10 @@ export const InfoCards = memo(({
                 </li>
               ))}
             </ol>
-          )}
-        </CardContent>
-      </Card>
+          </>
+        )}
+      </CardContent>
+    </Card>
 
       <Card>
         <CardHeader>
@@ -113,7 +122,9 @@ export const InfoCards = memo(({
         </CardHeader>
         <CardContent>
           {sessionsCount === 0 ? (
-            <p className="text-sm text-muted-foreground">No sessions recorded for the current filters.</p>
+            <p className="text-sm text-muted-foreground">
+              No sessions recorded for these filters yet. Log a trip to unlock this section.
+            </p>
           ) : (
             <div className="space-y-3 text-sm">
               <div className="flex items-center justify-between">
