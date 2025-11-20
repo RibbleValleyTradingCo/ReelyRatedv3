@@ -4,6 +4,8 @@ import { useAuthUser, useAuthLoading } from "@/components/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
+import { LoadingState } from "@/components/ui/LoadingState";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { toast } from "sonner";
 import { canViewCatch } from "@/lib/visibility";
 import { useSearchParams } from "react-router-dom";
@@ -279,7 +281,7 @@ const Feed = () => {
     return (
       <div className="min-h-screen bg-gradient-to-b from-background to-muted">
         <Navbar />
-        <div className="container mx-auto px-4 py-8">Loading...</div>
+        <LoadingState message="Loading your feed..." fullscreen />
       </div>
     );
   }
@@ -322,20 +324,19 @@ const Feed = () => {
         )}
 
         {filteredCatches.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground mb-4">
-              {catches.length === 0
+          <EmptyState
+            message={
+              catches.length === 0
                 ? "No catches yet. Be the first to share!"
                 : sessionFilter
                   ? "No catches logged for this session yet."
                   : feedScope === "following"
                     ? "No catches from anglers you follow yet. Explore the full feed or follow more people."
-                    : "No catches match your filters"}
-            </p>
-            <Button variant="ocean" onClick={() => navigate("/add-catch")}>
-              Log Your First Catch
-            </Button>
-          </div>
+                    : "No catches match your filters"
+            }
+            actionLabel="Log Your First Catch"
+            onActionClick={() => navigate("/add-catch")}
+          />
         )}
       </div>
     </div>
