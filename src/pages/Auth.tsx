@@ -13,10 +13,11 @@ import { toast } from "sonner";
 import { Chrome } from "lucide-react";
 import LogoMark from "@/components/LogoMark";
 import { signInSchema, signUpSchema, type SignInFormData, type SignUpFormData } from "@/schemas";
+import { LoadingState } from "@/components/ui/LoadingState";
 
 const Auth = () => {
   const navigate = useNavigate();
-  const { user, loading } = useAuth();
+  const { user, loading, isAuthReady } = useAuth();
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   // Sign In Form
@@ -53,6 +54,7 @@ const Auth = () => {
     if (error) {
       toast.error(error.message);
     } else {
+      signInForm.reset();
       toast.success("Welcome back!");
       navigate("/");
     }
@@ -124,8 +126,12 @@ const Auth = () => {
     }
   };
 
-  if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  if (loading || !isAuthReady) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-background to-muted flex items-center justify-center p-4">
+        <LoadingState message="Loading your account…" />
+      </div>
+    );
   }
 
   return (
@@ -151,6 +157,7 @@ const Auth = () => {
                   <Input
                     id="signin-email"
                     type="email"
+                    autoComplete="email"
                     {...signInForm.register("email")}
                     aria-invalid={!!signInForm.formState.errors.email}
                   />
@@ -165,6 +172,7 @@ const Auth = () => {
                   <Input
                     id="signin-password"
                     type="password"
+                    autoComplete="current-password"
                     {...signInForm.register("password")}
                     aria-invalid={!!signInForm.formState.errors.password}
                   />
@@ -215,6 +223,7 @@ const Auth = () => {
                   <Input
                     id="signup-email"
                     type="email"
+                    autoComplete="email"
                     {...signUpForm.register("email")}
                     aria-invalid={!!signUpForm.formState.errors.email}
                   />
@@ -229,6 +238,7 @@ const Auth = () => {
                   <Input
                     id="signup-password"
                     type="password"
+                    autoComplete="new-password"
                     {...signUpForm.register("password")}
                     aria-invalid={!!signUpForm.formState.errors.password}
                   />

@@ -30,6 +30,16 @@ const AuthUserContext = createContext<AuthUserContextType>({ user: null });
 const AuthLoadingContext = createContext<AuthLoadingContextType>({ loading: true });
 const AuthSessionContext = createContext<AuthSessionContextType>({ session: null });
 
+const isAuthSessionMissingError = (error: AuthError | null | undefined) => {
+  if (!error) {
+    return false;
+  }
+  if (error.name === "AuthSessionMissingError") {
+    return true;
+  }
+  return typeof error.message === "string" && error.message.toLowerCase().includes("session missing");
+};
+
 // Legacy combined context for backwards compatibility
 const AuthContext = createContext<AuthContextType>({
   user: null,
@@ -66,10 +76,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
         if (!mounted) return;
 
-        if (userError) {
+        if (userError && !isAuthSessionMissingError(userError)) {
           console.error("Failed to fetch auth user", userError);
         }
-        if (sessionError) {
+        if (sessionError && !isAuthSessionMissingError(sessionError)) {
           console.error("Failed to fetch auth session", sessionError);
         }
 
