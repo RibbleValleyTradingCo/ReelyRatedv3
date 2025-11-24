@@ -31,12 +31,15 @@ const isValidUrl = (value: string): boolean => {
   }
 };
 
+const isLocalSupabaseUrl = (value: string): boolean => {
+  return value.startsWith('http://127.0.0.1:54321') || value.startsWith('http://localhost:54321');
+};
+
 /**
- * Validates that a string is a valid UUID format
+ * Validates that a Supabase key looks plausible for hosted mode (JWT-like).
  */
-const looksLikeKey = (value: string): boolean => {
-  // Supabase anon keys are long base64-style strings
-  return value.length > 50 && /^[A-Za-z0-9._-]+$/.test(value);
+const looksLikeHostedAnonKey = (value: string): boolean => {
+  return value.length > 80 && value.split('.').length === 3;
 };
 
 /**
@@ -78,6 +81,7 @@ export const validateEnvironmentVariables = (): EnvValidationResult => {
   const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
   const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
   const actualKey = publishableKey || anonKey;
+  const urlIsLocal = supabaseUrl ? isLocalSupabaseUrl(supabaseUrl) : false;
 
   if (!actualKey) {
     errors.push({
@@ -85,12 +89,24 @@ export const validateEnvironmentVariables = (): EnvValidationResult => {
       issue: 'Missing required environment variable',
       suggestion: 'Add either VITE_SUPABASE_PUBLISHABLE_KEY or VITE_SUPABASE_ANON_KEY to your .env file',
     });
-  } else if (!looksLikeKey(actualKey)) {
-    errors.push({
-      variable: publishableKey ? 'VITE_SUPABASE_PUBLISHABLE_KEY' : 'VITE_SUPABASE_ANON_KEY',
-      issue: 'Invalid key format',
-      suggestion: 'Supabase anon keys should be long strings (100+ characters). Check your Supabase dashboard settings.',
-    });
+  } else if (urlIsLocal) {
+    // Local mode: accept sb_ keys; only error if empty
+    if (!actualKey || !actualKey.startsWith('sb_')) {
+      errors.push({
+        variable: publishableKey ? 'VITE_SUPABASE_PUBLISHABLE_KEY' : 'VITE_SUPABASE_ANON_KEY',
+        issue: 'Invalid local key format',
+        suggestion: 'For local dev, use the publishable key printed by `supabase start` (sb_publishable_…).',
+      });
+    }
+  } else {
+    // Hosted mode: require JWT-like anon key
+    if (!looksLikeHostedAnonKey(actualKey)) {
+      errors.push({
+        variable: publishableKey ? 'VITE_SUPABASE_PUBLISHABLE_KEY' : 'VITE_SUPABASE_ANON_KEY',
+        issue: 'Invalid key format',
+        suggestion: 'Use the anon key from your Supabase project settings (long JWT with 3 segments).',
+      });
+    }
   }
 
   // Check for dangerous service role key in client code (should NEVER be present)

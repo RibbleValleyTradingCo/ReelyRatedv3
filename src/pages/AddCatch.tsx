@@ -589,7 +589,7 @@ const AddCatch = () => {
             <p className="text-sm text-muted-foreground">Share your fishing success with the community</p>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-8">
+            <form onSubmit={handleSubmit} className="space-y-8" data-testid="add-catch-form">
               <CatchBasicsSection
                 imagePreview={imagePreview}
                 imageFile={imageFile}

@@ -173,16 +173,18 @@ const Profile = () => {
     }
   }, [profileId]);
 
-  const fetchFollowers = useCallback(async () => {
+  const fetchFollowerCount = useCallback(async () => {
     if (!profileId) return;
-    const { count, error } = await supabase
-      .from("profile_follows")
-      .select("id", { count: "exact", head: true })
-      .eq("following_id", profileId);
+    const { data, error } = await supabase.rpc("get_follower_count", {
+      p_profile_id: profileId,
+    });
 
-    if (!error && count !== null) {
-      setFollowersCount(count);
+    if (error) {
+      console.error("Failed to load follower count", error);
+      return;
     }
+
+    setFollowersCount(data ?? 0);
   }, [profileId]);
 
   const fetchFollowingProfiles = useCallback(async () => {
@@ -231,9 +233,9 @@ const Profile = () => {
   useEffect(() => {
     if (!profileId) return;
     void fetchUserCatches();
-    void fetchFollowers();
+    void fetchFollowerCount();
     void fetchFollowingProfiles();
-  }, [profileId, fetchFollowers, fetchFollowingProfiles, fetchUserCatches]);
+  }, [profileId, fetchFollowerCount, fetchFollowingProfiles, fetchUserCatches]);
 
   useEffect(() => {
     if (!profileId || !user || user.id === profileId) {
@@ -264,7 +266,7 @@ const Profile = () => {
         toast.error("Failed to unfollow");
       } else {
         setIsFollowing(false);
-        setFollowersCount((count) => Math.max(0, count - 1));
+        await fetchFollowerCount();
       }
     } else {
       const { error } = await supabase.rpc("follow_profile_with_rate_limit", {
@@ -279,7 +281,7 @@ const Profile = () => {
         }
       } else {
         setIsFollowing(true);
-        setFollowersCount((count) => count + 1);
+        await fetchFollowerCount();
         void createNotification({
           userId: profileId,
           actorId: user.id,

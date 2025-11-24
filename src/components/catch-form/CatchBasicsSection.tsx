@@ -45,6 +45,8 @@ export const CatchBasicsSection = ({
   formData,
   onFormDataChange,
 }: CatchBasicsSectionProps) => {
+  const speciesLabelId = React.useId();
+  const speciesTriggerId = React.useId();
   const [speciesPopoverOpen, setSpeciesPopoverOpen] = React.useState(false);
   const [speciesSearch, setSpeciesSearch] = React.useState("");
 
@@ -95,7 +97,7 @@ export const CatchBasicsSection = ({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="species">Species *</Label>
+        <Label id={speciesLabelId} htmlFor="species">Species *</Label>
         <Popover
           open={speciesPopoverOpen}
           onOpenChange={(isOpen) => {
@@ -112,6 +114,9 @@ export const CatchBasicsSection = ({
               role="combobox"
               aria-expanded={speciesPopoverOpen}
               className="w-full justify-between"
+              id={speciesTriggerId}
+              aria-labelledby={`${speciesLabelId} ${speciesTriggerId}`}
+              data-testid="species-combobox"
             >
               {(() => {
                 const selectedSpecies = UK_FRESHWATER_SPECIES.find((item) => item.value === formData.species);

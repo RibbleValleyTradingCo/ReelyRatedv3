@@ -48,11 +48,17 @@ export const createNotification = async ({ userId, actorId = null, type, payload
     });
 
     if (error) {
+      // Ignore duplicate key errors from dedupe upsert to avoid spamming logs/toasts.
+      if (error.code === "23505") {
+        return data;
+      }
+      console.error("Failed to create notification", error, { userId, type });
       logger.error("Failed to create notification", error, { userId, type });
     } else if (data && typeof data === "string") {
       return data;
     }
   } catch (error) {
+    console.error("Unexpected error creating notification", error, { userId, type });
     logger.error("Unexpected error creating notification", error, { userId, type });
   }
 };

@@ -80,6 +80,7 @@ export const CatchCard = memo(({ catchItem, userId }: CatchCardProps) => {
     <Card
       className="cursor-pointer hover:shadow-lg transition-shadow"
       onClick={() => navigate(`/catch/${catchItem.id}`)}
+      data-testid="catch-card"
     >
       <CardContent className="p-0 relative">
         <img
@@ -100,7 +101,7 @@ export const CatchCard = memo(({ catchItem, userId }: CatchCardProps) => {
         )}
       </CardContent>
       <CardFooter className="flex flex-col items-start gap-3 p-4">
-        <h3 className="font-semibold text-lg">{catchItem.title}</h3>
+        <h3 className="font-semibold text-lg" data-testid="catch-title">{catchItem.title}</h3>
         <div className="flex items-center gap-2 w-full">
           <Avatar className="w-8 h-8">
             <AvatarImage

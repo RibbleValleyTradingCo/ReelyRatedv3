@@ -924,6 +924,10 @@ export type Database = {
         Args: { p_following_id: string }
         Returns: string
       }
+      get_follower_count: {
+        Args: { p_profile_id: string }
+        Returns: number
+      }
       get_rate_limit_status: {
         Args: {
           p_action: string

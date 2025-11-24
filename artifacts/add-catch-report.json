@@ -1,0 +1,9 @@
+{
+  "name": "add-catch",
+  "url": "http://localhost:8080/feed",
+  "consoleErrors": [
+    "TypeError: Failed to fetch\n    at http://localhost:8080/node_modules/.vite/deps/@supabase_supabase-js.js?v=13826baa:6068:23\n    at _handleRequest3 (http://localhost:8080/node_modules/.vite/deps/@supabase_supabase-js.js?v=13826baa:6338:20)\n    at _request (http://localhost:8080/node_modules/.vite/deps/@supabase_supabase-js.js?v=13826baa:6328:22)\n    at http://localhost:8080/node_modules/.vite/deps/@supabase_supabase-js.js?v=13826baa:8738:22\n    at SupabaseAuthClient._useSession (http://localhost:8080/node_modules/.vite/deps/@supabase_supabase-js.js?v=13826baa:8637:20)\n    at async SupabaseAuthClient._getUser (http://localhost:8080/node_modules/.vite/deps/@supabase_supabase-js.js?v=13826baa:8729:14)\n    at async http://localhost:8080/node_modules/.vite/deps/@supabase_supabase-js.js?v=13826baa:8716:14"
+  ],
+  "failedRequests": [],
+  "timestamp": "2025-11-24T15:25:32.356Z"
+}

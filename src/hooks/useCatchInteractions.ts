@@ -1,4 +1,4 @@
-import { useCallback, RefObject } from "react";
+import { useCallback, RefObject, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -57,6 +57,7 @@ export const useCatchInteractions = ({
   fetchRatings,
 }: UseCatchInteractionsParams) => {
   const navigate = useNavigate();
+  const [ratingLoading, setRatingLoading] = useState(false);
 
   const handleDeleteCatch = useCallback(async () => {
     if (!userId || !catchData) {
@@ -146,6 +147,9 @@ export const useCatchInteractions = ({
     if (!userId || !catchData) {
       toast.error("Sign in to react");
       navigate("/auth");
+      return;
+    }
+    if (userId === catchData.user_id) {
       return;
     }
 
@@ -273,12 +277,18 @@ export const useCatchInteractions = ({
   };
 
   const handleAddRating = async () => {
+    if (ratingLoading) return;
     if (!userId || hasRated) return;
     if (!catchData || catchData.allow_ratings === false) {
       toast.error("Ratings are disabled for this catch");
       return;
     }
+    if (catchData.user_id === userId) {
+      toast.error("You can't rate your own catch");
+      return;
+    }
 
+    setRatingLoading(true);
     const { error } = await supabase.rpc("rate_catch_with_rate_limit", {
       p_catch_id: catchId,
       p_rating: userRating,
@@ -287,6 +297,16 @@ export const useCatchInteractions = ({
     if (error) {
       if (isRateLimitError(error)) {
         toast.error(getRateLimitMessage(error));
+      } else if (error.message?.includes("You cannot rate your own catch")) {
+        toast.error("You can't rate your own catch");
+      } else if (error.message?.includes("Ratings are disabled")) {
+        toast.error("Ratings are disabled for this catch");
+      } else if (error.message?.includes("Catch is not accessible")) {
+        toast.error("You don't have access to rate this catch");
+      } else if (error.message?.includes("Rating must be between 1 and 10")) {
+        toast.error("Rating must be between 1 and 10");
+      } else if (error.message?.startsWith("RATE_LIMITED")) {
+        toast.error("You're doing that too quickly. Please try again later.");
       } else {
         toast.error("Failed to add rating");
       }
@@ -310,6 +330,7 @@ export const useCatchInteractions = ({
         });
       }
     }
+    setRatingLoading(false);
   };
 
   return {
@@ -320,6 +341,7 @@ export const useCatchInteractions = ({
     handleShareWhatsApp,
     handleDownloadShareImage,
     handleAddRating,
+    ratingLoading,
     catchUrl,
   };
 };

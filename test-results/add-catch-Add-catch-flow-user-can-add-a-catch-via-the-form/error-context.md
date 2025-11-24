@@ -1,0 +1,96 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - region "Notifications (F8)":
+    - list
+  - region "Notifications alt+T":
+    - list:
+      - listitem [ref=e3]:
+        - img [ref=e5]
+        - generic [ref=e8]: Catch added successfully!
+  - generic [ref=e9]:
+    - banner [ref=e10]:
+      - generic [ref=e12]:
+        - link "ReelyRated Freshwater Social" [ref=e13] [cursor=pointer]:
+          - /url: /
+          - img [ref=e16]
+          - generic [ref=e20]:
+            - generic [ref=e21]: ReelyRated
+            - generic [ref=e22]: Freshwater Social
+        - navigation [ref=e23]:
+          - link "Feed" [ref=e24] [cursor=pointer]:
+            - /url: /feed
+          - link "Leaderboard" [ref=e25] [cursor=pointer]:
+            - /url: /leaderboard
+          - link "Sessions" [ref=e26] [cursor=pointer]:
+            - /url: /sessions
+          - link "Explore" [ref=e27] [cursor=pointer]:
+            - /url: /search
+        - generic [ref=e28]:
+          - button "Open search" [ref=e29] [cursor=pointer]:
+            - img [ref=e30]
+          - button "Open notifications" [ref=e33] [cursor=pointer]:
+            - img
+          - button "Account menu" [ref=e34] [cursor=pointer]:
+            - generic [ref=e36]: T
+          - button "Toggle navigation menu" [ref=e37] [cursor=pointer]:
+            - img [ref=e38]
+    - generic [ref=e39]:
+      - heading "Community Catches" [level=1] [ref=e40]
+      - generic [ref=e41]:
+        - combobox [ref=e42] [cursor=pointer]:
+          - generic: All catches
+          - img [ref=e43]
+        - combobox [ref=e45] [cursor=pointer]:
+          - generic: All Species
+          - img [ref=e46]
+        - combobox [ref=e48] [cursor=pointer]:
+          - generic: Newest First
+          - img [ref=e49]
+      - generic [ref=e51]:
+        - generic [ref=e52] [cursor=pointer]:
+          - img "E2E Test Catch" [ref=e54]
+          - generic [ref=e55]:
+            - heading "E2E Test Catch" [level=3] [ref=e56]
+            - generic [ref=e57]:
+              - generic [ref=e59]: T
+              - generic [ref=e60]: test
+            - paragraph [ref=e61]: Farlows Lake, Buckinghamshire
+            - generic [ref=e62]:
+              - generic [ref=e63]:
+                - img [ref=e64]
+                - generic [ref=e66]: "0"
+                - generic [ref=e67]: (0)
+              - generic [ref=e68]:
+                - img [ref=e69]
+                - generic [ref=e71]: "0"
+              - generic [ref=e72]:
+                - img [ref=e73]
+                - generic [ref=e75]: "0"
+        - generic [ref=e76] [cursor=pointer]:
+          - generic [ref=e77]:
+            - img "1" [ref=e78]
+            - generic [ref=e80]:
+              - generic [ref=e81]:
+                - img [ref=e82]
+                - generic [ref=e88]: Brown Trout
+              - generic [ref=e89]: 1lb
+          - generic [ref=e90]:
+            - heading "1" [level=3] [ref=e91]
+            - generic [ref=e92]:
+              - generic [ref=e94]: J
+              - generic [ref=e95]: jimmyjamesjnr
+            - paragraph [ref=e96]: Bluebell Lakes, Northamptonshire
+            - generic [ref=e97]:
+              - generic [ref=e98]:
+                - img [ref=e99]
+                - generic [ref=e101]: "0"
+                - generic [ref=e102]: (0)
+              - generic [ref=e103]:
+                - img [ref=e104]
+                - generic [ref=e106]: "2"
+              - generic [ref=e107]:
+                - img [ref=e108]
+                - generic [ref=e110]: "0"
+```

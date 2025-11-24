@@ -12,6 +12,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest",
+    "test:e2e": "playwright test",
     "seed:local": "supabase db seed",
     "seed:remote": "tsx scripts/seed-remote.ts",
     "cleanup:test-data": "tsx scripts/cleanup-test-data.ts"
@@ -73,6 +74,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
+    "@playwright/test": "^1.56.1",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^14.2.2",
     "@testing-library/user-event": "^14.5.1",

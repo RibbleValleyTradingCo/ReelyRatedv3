@@ -1,1 +1,6 @@
-project_id = "rxvvtklyzisqgxzkgbvd"
+project_id = "jyuwmhplvzmkunpizorz"
+
+[db]
+
+[storage]
+enabled = true

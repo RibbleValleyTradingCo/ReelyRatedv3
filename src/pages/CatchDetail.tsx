@@ -90,6 +90,7 @@ const CatchDetail = () => {
   });
 
   const ownerId = catchData?.user_id ?? null;
+  const isOwner = user?.id && ownerId ? user.id === ownerId : false;
 
   const {
     handleDeleteCatch,
@@ -99,6 +100,7 @@ const CatchDetail = () => {
     handleShareWhatsApp,
     handleDownloadShareImage,
     handleAddRating,
+    ratingLoading,
     catchUrl,
   } = useCatchInteractions({
     catchId: id,
@@ -290,17 +292,26 @@ const CatchDetail = () => {
 
         <div className="mb-8 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border bg-card/60 px-4 py-3 shadow-sm">
           <div className="flex items-center gap-3">
-            <Button
-              size="sm"
-              variant={userHasReacted ? "ocean" : "outline"}
-              onClick={handleToggleReaction}
-              disabled={reactionLoading || !catchData}
-              className="flex items-center gap-2"
-            >
-              <Heart className="h-4 w-4" fill={userHasReacted ? "currentColor" : "none"} />
-              {reactionLoading ? "Saving…" : userHasReacted ? "Liked" : "Like"}
-            </Button>
-            <span className="text-sm text-muted-foreground">{reactionCount} like{reactionCount === 1 ? "" : "s"}</span>
+            {isOwner ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Heart className="h-4 w-4 text-muted-foreground" />
+                <span>{reactionCount} like{reactionCount === 1 ? "" : "s"}</span>
+              </div>
+            ) : (
+              <>
+                <Button
+                  size="sm"
+                  variant={userHasReacted ? "ocean" : "outline"}
+                  onClick={handleToggleReaction}
+                  disabled={reactionLoading || !catchData}
+                  className="flex items-center gap-2"
+                >
+                  <Heart className="h-4 w-4" fill={userHasReacted ? "currentColor" : "none"} />
+                  {reactionLoading ? "Saving…" : userHasReacted ? "Liked" : "Like"}
+                </Button>
+                <span className="text-sm text-muted-foreground">{reactionCount} like{reactionCount === 1 ? "" : "s"}</span>
+              </>
+            )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Button size="sm" variant="outline" onClick={() => handleShareWhatsApp(locationLabel)} className="flex items-center gap-2">
@@ -391,7 +402,7 @@ const CatchDetail = () => {
                     <p className="text-sm text-muted-foreground mt-1">{ratings.length} ratings</p>
                   </div>
 
-                  {user && !hasRated && (
+                  {user && !hasRated && !isOwner && (
                     <div className="space-y-3 pt-4 border-t">
                       <p className="font-medium text-sm">Rate this catch (1-10)</p>
                       <Slider
@@ -401,9 +412,15 @@ const CatchDetail = () => {
                         max={10}
                         step={1}
                         className="py-4"
+                        disabled={ratingLoading}
                       />
                       <div className="text-center text-2xl font-bold">{userRating}</div>
-                      <Button onClick={handleAddRating} className="w-full" size="sm">
+                      <Button
+                        onClick={handleAddRating}
+                        className="w-full"
+                        size="sm"
+                        disabled={ratingLoading}
+                      >
                         Submit Rating
                       </Button>
                     </div>

@@ -101,6 +101,8 @@ export const LocationSection = ({
   newSession,
   setNewSession,
 }: LocationSectionProps) => {
+  const fisheryLabelId = React.useId();
+  const fisheryTriggerId = React.useId();
   const [open, setOpen] = React.useState(false);
   const [waterTypePopoverOpen, setWaterTypePopoverOpen] = React.useState(false);
   const [waterTypeSearch, setWaterTypeSearch] = React.useState("");
@@ -130,7 +132,7 @@ export const LocationSection = ({
 
       <div className="space-y-3">
         <div className="space-y-2">
-          <Label htmlFor="location">Fishery / Venue *</Label>
+          <Label id={fisheryLabelId} htmlFor="location">Fishery / Venue *</Label>
           <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
               <Button
@@ -140,6 +142,9 @@ export const LocationSection = ({
                 className="w-full justify-between"
                 disabled={useGpsLocation}
                 type="button"
+                id={fisheryTriggerId}
+                aria-labelledby={`${fisheryLabelId} ${fisheryTriggerId}`}
+                data-testid="fishery-combobox"
               >
                 {formData.location || "Select fishery..."}
                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
