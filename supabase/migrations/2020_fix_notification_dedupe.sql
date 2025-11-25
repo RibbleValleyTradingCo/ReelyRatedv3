@@ -22,8 +22,29 @@ USING (
 ) d
 WHERE n.ctid = d.ctid;
 
--- 2) Drop the old index if it exists
-DROP INDEX IF EXISTS public.uq_notifications_like_follow_once;
+-- 2) Drop existing constraint first (if present), then drop the index (idempotent)
+DO $$
+BEGIN
+  -- Drop constraint if it exists
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'uq_notifications_like_follow_once'
+      AND conrelid = 'public.notifications'::regclass
+  ) THEN
+    ALTER TABLE public.notifications
+      DROP CONSTRAINT uq_notifications_like_follow_once;
+  END IF;
+
+  -- Drop index if it exists (may be standalone in older states)
+  IF EXISTS (
+    SELECT 1 FROM pg_indexes
+    WHERE schemaname = 'public'
+      AND indexname = 'uq_notifications_like_follow_once'
+  ) THEN
+    EXECUTE 'DROP INDEX public.uq_notifications_like_follow_once';
+  END IF;
+END;
+$$;
 
 -- 3) Add a UNIQUE constraint on (user_id, actor_id, type) if not present
 DO $$
