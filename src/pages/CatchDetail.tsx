@@ -68,6 +68,7 @@ const CatchDetail = () => {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [downloadLoading, setDownloadLoading] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [adminChecked, setAdminChecked] = useState(false);
   const shareCardRef = useRef<HTMLDivElement | null>(null);
 
   const {
@@ -133,13 +134,20 @@ const CatchDetail = () => {
     const loadAdmin = async () => {
       if (!user?.id) {
         setIsAdmin(false);
+        setAdminChecked(true);
         return;
       }
       try {
         const status = await isAdminUser(user.id);
-        if (active) setIsAdmin(status);
+        if (active) {
+          setIsAdmin(status);
+          setAdminChecked(true);
+        }
       } catch {
-        if (active) setIsAdmin(false);
+        if (active) {
+          setIsAdmin(false);
+          setAdminChecked(true);
+        }
       }
     };
     void loadAdmin();
@@ -157,27 +165,7 @@ const CatchDetail = () => {
     [catchData?.profiles?.avatar_path, catchData?.profiles?.avatar_url]
   );
 
-  useEffect(() => {
-    if (!catchData) return;
-    const needsFollowCheck =
-      catchData.visibility === "followers" && user?.id !== catchData.user_id;
-    if (needsFollowCheck && !followStatusLoaded) {
-      return;
-    }
-
-    const allowed = canViewCatch(
-      catchData.visibility,
-      catchData.user_id,
-      user?.id,
-      isFollowing ? [catchData.user_id] : [],
-      isAdmin
-    );
-
-    if (!allowed) {
-      toast.error("You do not have access to this catch");
-      navigate("/feed");
-    }
-  }, [catchData, followStatusLoaded, isFollowing, navigate, user?.id]);
+  // Access is enforced by RLS on the catches table; if fetch fails, we navigate away in the hook.
 
   if (isLoading || !catchData) {
     return (
