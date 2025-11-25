@@ -54,6 +54,7 @@ import type { Database } from "@/integrations/supabase/types";
 import html2canvas from "html2canvas";
 import ShareCard from "@/components/ShareCard";
 import ReportButton from "@/components/ReportButton";
+import { isAdminUser } from "@/lib/admin";
 
 const CatchDetail = () => {
   const { id } = useParams();
@@ -66,6 +67,7 @@ const CatchDetail = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [downloadLoading, setDownloadLoading] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const shareCardRef = useRef<HTMLDivElement | null>(null);
 
   const {
@@ -125,6 +127,26 @@ const CatchDetail = () => {
     shareCardRef,
     fetchRatings,
   });
+
+  useEffect(() => {
+    let active = true;
+    const loadAdmin = async () => {
+      if (!user?.id) {
+        setIsAdmin(false);
+        return;
+      }
+      try {
+        const status = await isAdminUser(user.id);
+        if (active) setIsAdmin(status);
+      } catch {
+        if (active) setIsAdmin(false);
+      }
+    };
+    void loadAdmin();
+    return () => {
+      active = false;
+    };
+  }, [user?.id]);
 
   const ownerAvatarUrl = useMemo(
     () =>
@@ -341,9 +363,9 @@ const CatchDetail = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Main Content */}
+            <div className="lg:col-span-2 space-y-6">
             {/* Story */}
             {catchData.description && (
               <Card>
@@ -377,13 +399,14 @@ const CatchDetail = () => {
               </Card>
             )}
 
-            <CatchComments
-              catchId={catchData.id}
-              catchOwnerId={catchData.user_id}
-              catchTitle={catchData.title}
-              currentUserId={user?.id ?? null}
-            />
-          </div>
+              <CatchComments
+                catchId={catchData.id}
+                catchOwnerId={catchData.user_id}
+                catchTitle={catchData.title}
+                currentUserId={user?.id ?? null}
+                isAdmin={isAdmin}
+              />
+            </div>
 
           {/* Sidebar */}
           <div className="space-y-6">

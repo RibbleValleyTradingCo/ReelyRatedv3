@@ -869,17 +869,21 @@ export type Database = {
       check_email_exists: { Args: { p_email: string }; Returns: boolean }
       check_rate_limit: {
         Args: {
+          p_user_id: string
           p_action: string
           p_max_attempts: number
-          p_user_id: string
           p_window_minutes: number
         }
         Returns: boolean
       }
       cleanup_rate_limits: { Args: never; Returns: number }
       create_comment_with_rate_limit: {
-        Args: { p_body: string; p_catch_id: string }
+        Args: { p_catch_id: string; p_body: string; p_parent_comment_id?: string | null }
         Returns: string
+      }
+      soft_delete_comment: {
+        Args: { p_comment_id: string }
+        Returns: undefined
       }
       create_notification: {
         Args: {
