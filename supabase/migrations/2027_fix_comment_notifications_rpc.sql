@@ -3,25 +3,8 @@
 
 SET search_path = public, extensions;
 
--- Drop old overloads (idempotent) to avoid clients hitting outdated signatures.
-DO $$
-BEGIN
-  IF EXISTS (
-    SELECT 1 FROM pg_proc WHERE proname = 'create_comment_with_rate_limit'
-      AND proargtypes = ARRAY['uuid'::regtype, 'text'::regtype]::oid[]
-  ) THEN
-    EXECUTE 'DROP FUNCTION public.create_comment_with_rate_limit(uuid, text)';
-  END IF;
-
-  IF EXISTS (
-    SELECT 1 FROM pg_proc WHERE proname = 'create_comment_with_rate_limit'
-      AND proargtypes = ARRAY['uuid'::regtype, 'text'::regtype, 'uuid'::regtype]::oid[]
-      AND pronamespace = 'public'::regnamespace
-  ) THEN
-    NULL; -- keep 3-arg form; we'll recreate below.
-  END IF;
-END;
-$$;
+-- Drop old 2-arg overload (idempotent) to avoid clients hitting outdated signatures.
+DROP FUNCTION IF EXISTS public.create_comment_with_rate_limit(uuid, text);
 
 -- Recreate the 3-arg function with notification dispatch intact.
 CREATE OR REPLACE FUNCTION public.create_comment_with_rate_limit(
