@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -21,6 +21,7 @@ export interface CatchComment {
 
 export interface ThreadedComment extends CatchComment {
   children: ThreadedComment[];
+  totalChildrenCount?: number;
 }
 
 const buildThread = (flat: CatchComment[]): ThreadedComment[] => {
@@ -55,17 +56,70 @@ const buildThread = (flat: CatchComment[]): ThreadedComment[] => {
     }
   });
 
+  // Sort top-level: newest first; children: oldest first, and set counts
+  const sortAsc = (a: ThreadedComment, b: ThreadedComment) =>
+    new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+  const sortDesc = (a: ThreadedComment, b: ThreadedComment) =>
+    new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+
+  const sortTree = (nodes: ThreadedComment[]) => {
+    nodes.forEach((n) => {
+      if (n.children.length > 0) {
+        n.children.sort(sortAsc);
+        n.totalChildrenCount = n.children.length;
+        sortTree(n.children);
+      } else {
+        n.totalChildrenCount = 0;
+      }
+    });
+  };
+
+  sortTree(roots);
+  roots.sort(sortDesc);
   return roots;
 };
 
 export const useCatchComments = (catchId: string | undefined) => {
   const [comments, setComments] = useState<CatchComment[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const hasLoadedOnceRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
+  const [refreshToken, setRefreshToken] = useState(0);
+
+  const replaceIfChanged = useCallback((next: CatchComment[]) => {
+    setComments((prev) => {
+      if (prev.length === next.length) {
+        const prevById = new Map(prev.map((c) => [c.id, c]));
+        const changed = next.some((n) => {
+          const p = prevById.get(n.id);
+          if (!p) return true;
+          const profileChanged =
+            (p.profiles?.username ?? null) !== (n.profiles?.username ?? null) ||
+            (p.profiles?.avatar_path ?? null) !== (n.profiles?.avatar_path ?? null) ||
+            (p.profiles?.avatar_url ?? null) !== (n.profiles?.avatar_url ?? null);
+          return (
+            p.body !== n.body ||
+            p.deleted_at !== n.deleted_at ||
+            p.updated_at !== n.updated_at ||
+            p.parent_comment_id !== n.parent_comment_id ||
+            p.user_id !== n.user_id ||
+            p.catch_id !== n.catch_id ||
+            p.created_at !== n.created_at ||
+            profileChanged
+          );
+        });
+        if (!changed) return prev;
+      }
+      return next;
+    });
+  }, []);
 
   const fetchComments = useCallback(async () => {
     if (!catchId) return;
-    setIsLoading(true);
+    const isInitial = !hasLoadedOnceRef.current;
+    if (isInitial) {
+      setIsLoading(true);
+    }
     setError(null);
 
     const { data, error: fetchError } = await supabase
@@ -80,15 +134,32 @@ export const useCatchComments = (catchId: string | undefined) => {
       setError("Failed to load comments");
       toast.error("Failed to load comments");
     } else {
-      setComments((data as CatchComment[]) ?? []);
+      replaceIfChanged((data as CatchComment[]) ?? []);
     }
 
-    setIsLoading(false);
-  }, [catchId]);
+    if (isInitial) {
+      setIsLoading(false);
+    }
+    hasLoadedOnceRef.current = true;
+  }, [catchId, replaceIfChanged]);
 
   useEffect(() => {
     void fetchComments();
-  }, [fetchComments]);
+  }, [fetchComments, refreshToken]);
+
+  const addLocalComment = useCallback((comment: CatchComment) => {
+    setComments((prev) => {
+      // Avoid duplicates by id
+      if (prev.some((c) => c.id === comment.id)) return prev;
+      return [...prev, comment];
+    });
+  }, []);
+
+  const markLocalCommentDeleted = useCallback((commentId: string) => {
+    setComments((prev) =>
+      prev.map((c) => (c.id === commentId ? { ...c, deleted_at: c.deleted_at ?? new Date().toISOString() } : c))
+    );
+  }, []);
 
   const tree = useMemo(() => buildThread(comments), [comments]);
 
@@ -97,6 +168,8 @@ export const useCatchComments = (catchId: string | undefined) => {
     commentsTree: tree,
     isLoading,
     error,
-    refetch: fetchComments,
+    refetch: () => setRefreshToken((prev) => prev + 1),
+    addLocalComment,
+    markLocalCommentDeleted,
   };
 };

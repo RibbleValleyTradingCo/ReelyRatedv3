@@ -40,8 +40,9 @@ const highlightMentions = (text: string) => {
 
 const INITIAL_VISIBLE_ROOTS = 10;
 const LOAD_MORE_COUNT = 10;
-const MAX_INDENT_LEVEL = 4;
-const INDENT_PER_LEVEL = 14;
+// Visual indent: Facebook-style, two visual levels (root + replies all share one indent)
+const REPLY_INDENT_PX = 14;
+const REPLIES_PAGE_SIZE = 3;
 
 export const CatchComments = memo(
   ({ catchId, catchOwnerId, catchTitle, currentUserId, isAdmin = false, targetCommentId }: CatchCommentsProps) => {
@@ -53,6 +54,7 @@ export const CatchComments = memo(
     const [isPosting, setIsPosting] = useState(false);
     const [deleteLoadingId, setDeleteLoadingId] = useState<string | null>(null);
     const [visibleRootCount, setVisibleRootCount] = useState(INITIAL_VISIBLE_ROOTS);
+    const [visibleRepliesByRoot, setVisibleRepliesByRoot] = useState<Record<string, number>>({});
 
     const { checkLimit, isLimited, attemptsRemaining, resetIn } = useRateLimit({
       maxAttempts: 30,
@@ -158,22 +160,34 @@ export const CatchComments = memo(
       }
     };
 
-    const renderComment = (comment: ThreadedComment, depth = 0): JSX.Element => {
+    // Flatten all descendants of a root into a single-level replies list
+    const flattenReplies = (root: ThreadedComment): Array<ThreadedComment & { parentAuthor?: string; realDepth: number }> => {
+      const flat: Array<ThreadedComment & { parentAuthor?: string; realDepth: number }> = [];
+
+      const walk = (node: ThreadedComment, realDepth: number, parentAuthor?: string) => {
+        node.children.forEach((child) => {
+          flat.push({ ...child, parentAuthor, realDepth });
+          walk(child, realDepth + 1, child.profiles?.username ?? parentAuthor);
+        });
+      };
+
+      walk(root, 1, root.profiles?.username ?? undefined);
+      return flat;
+    };
+
+    const renderCommentRow = (
+      comment: ThreadedComment,
+      options: { isRoot: boolean; realDepth?: number; parentAuthor?: string }
+    ): JSX.Element => {
       const isOwner = currentUserId === comment.user_id;
       const canDelete = (isOwner || isAdmin) && !comment.deleted_at;
       const isDeleted = Boolean(comment.deleted_at);
       const replyDraft = replyDrafts[comment.id] ?? "";
-      const indentLevel = Math.min(depth, MAX_INDENT_LEVEL);
-      const indentPx = indentLevel * INDENT_PER_LEVEL;
+      const indentPx = options.isRoot ? 0 : REPLY_INDENT_PX;
 
       return (
-        <div
-          key={comment.id}
-          id={`comment-${comment.id}`}
-          className="flex w-full min-w-0 py-3"
-          style={{ paddingLeft: indentPx }}
-        >
-          <div className="flex gap-3 w-full min-w-0">
+        <div key={comment.id} id={`comment-${comment.id}`} className="flex w-full max-w-full min-w-0 py-3">
+          <div className="flex gap-3 w-full min-w-0" style={{ paddingLeft: indentPx }}>
             <Link
               to={getProfilePath({ username: comment.profiles?.username, id: comment.user_id })}
               className="focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-full shrink-0"
@@ -205,6 +219,11 @@ export const CatchComments = memo(
                 {isDeleted && <span className="text-xs text-muted-foreground">(deleted)</span>}
               </div>
               <div className="rounded-lg bg-muted/40 px-4 py-3 text-sm text-foreground">
+                {options.realDepth !== undefined && options.realDepth > 1 && options.parentAuthor ? (
+                  <div className="mb-1 text-xs text-muted-foreground">
+                    Replying to <span className="font-semibold text-foreground">@{options.parentAuthor}</span>
+                  </div>
+                ) : null}
                 {isDeleted ? (
                   isAdmin ? (
                     <div className="space-y-1">
@@ -271,11 +290,6 @@ export const CatchComments = memo(
                   </div>
                 </div>
               )}
-              {comment.children.length > 0 && (
-                <div className="space-y-3">
-                  {comment.children.map((child) => renderComment(child, depth + 1))}
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -291,18 +305,31 @@ export const CatchComments = memo(
     useEffect(() => {
       if (!targetCommentId) return;
       const rootIndex = topLevelComments.findIndex((root) => {
-        const stack = [root];
-        while (stack.length) {
-          const node = stack.pop()!;
-          if (node.id === targetCommentId) return true;
-          stack.push(...node.children);
-        }
-        return false;
+        if (root.id === targetCommentId) return true;
+        const replies = flattenReplies(root);
+        return replies.some((r) => r.id === targetCommentId);
       });
       if (rootIndex >= 0 && rootIndex >= visibleRootCount) {
         setVisibleRootCount((count) => Math.max(count, rootIndex + 1));
       }
-    }, [targetCommentId, topLevelComments, visibleRootCount]);
+    }, [targetCommentId, topLevelComments, visibleRootCount, flattenReplies]);
+
+    // Ensure the replies block is fully visible for the target
+    useEffect(() => {
+      if (!targetCommentId) return;
+      const root = topLevelComments.find((r) => {
+        if (r.id === targetCommentId) return true;
+        return flattenReplies(r).some((reply) => reply.id === targetCommentId);
+      });
+      if (!root) return;
+      const replies = flattenReplies(root);
+      if (replies.some((r) => r.id === targetCommentId)) {
+        setVisibleRepliesByRoot((prev) => ({
+          ...prev,
+          [root.id]: replies.length,
+        }));
+      }
+    }, [targetCommentId, topLevelComments, flattenReplies]);
 
     const hasScrolledRef = useRef<string | null>(null);
 
@@ -381,7 +408,45 @@ export const CatchComments = memo(
             <p className="text-sm text-muted-foreground">No comments yet. Be the first to share one!</p>
           ) : (
             <div className="space-y-4">
-              {visibleRoots.map((comment) => renderComment(comment))}
+              {visibleRoots.map((root) => {
+                const repliesFlat = flattenReplies(root);
+                const totalReplies = repliesFlat.length;
+                const visible = visibleRepliesByRoot[root.id] ?? REPLIES_PAGE_SIZE;
+                const start = Math.max(0, totalReplies - visible);
+                const visibleReplies = repliesFlat.slice(start);
+                const hiddenCount = totalReplies - visibleReplies.length;
+
+                return (
+                  <div key={root.id} className="w-full max-w-full min-w-0">
+                    {renderCommentRow(root, { isRoot: true })}
+                    {totalReplies > 0 && (
+                      <div className="mt-2 space-y-2" style={{ paddingLeft: REPLY_INDENT_PX }}>
+                        {hiddenCount > 0 && (
+                          <button
+                            type="button"
+                            className="text-xs text-primary hover:underline"
+                            onClick={() =>
+                              setVisibleRepliesByRoot((prev) => ({
+                                ...prev,
+                                [root.id]: Math.min(totalReplies, visible + REPLIES_PAGE_SIZE),
+                              }))
+                            }
+                          >
+                            View more replies ({hiddenCount})
+                          </button>
+                        )}
+                        {visibleReplies.map((reply) =>
+                          renderCommentRow(reply, {
+                            isRoot: false,
+                            realDepth: reply.realDepth,
+                            parentAuthor: reply.parentAuthor,
+                          })
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
               {visibleRootCount < topLevelComments.length && (
                 <div className="flex justify-center">
                   <Button
