@@ -13,8 +13,7 @@ import { getProfilePath } from "@/lib/profile";
 import { resolveAvatarUrl } from "@/lib/storage";
 import { useRateLimit, formatResetTime } from "@/hooks/useRateLimit";
 import { isRateLimitError, getRateLimitMessage } from "@/lib/rateLimit";
-import { useCatchComments, ThreadedComment } from "@/hooks/useCatchComments";
-import { MessageSquareReply } from "lucide-react";
+import { useCatchComments, ThreadedComment, CatchComment } from "@/hooks/useCatchComments";
 
 interface CatchCommentsProps {
   catchId: string;
@@ -45,31 +44,85 @@ const LOAD_MORE_COUNT = 10;
 const REPLY_INDENT_PX = 14;
 const REPLIES_PAGE_SIZE = 3;
 
+const getDisplayName = (comment: ThreadedComment) => comment.profiles?.username ?? "Unknown angler";
+
+function buildOptimisticComment(args: {
+  id: string;
+  catchId: string;
+  body: string;
+  userId: string;
+  parentCommentId: string | null;
+  nowIso: string;
+  currentUserProfile: {
+    id: string;
+    username: string;
+    avatar_path: string | null;
+    avatar_url: string | null;
+  } | null;
+  isAdminAuthor: boolean;
+}): CatchComment {
+  return {
+    id: args.id,
+    catch_id: args.catchId,
+    user_id: args.userId,
+    body: args.body,
+    parent_comment_id: args.parentCommentId,
+    created_at: args.nowIso,
+    updated_at: args.nowIso,
+    deleted_at: null,
+    is_admin_author: args.isAdminAuthor,
+    profiles: args.currentUserProfile
+      ? {
+          id: args.currentUserProfile.id,
+          username: args.currentUserProfile.username,
+          avatar_path: args.currentUserProfile.avatar_path,
+          avatar_url: args.currentUserProfile.avatar_url,
+        }
+      : null,
+  };
+}
+
+function flattenReplies(
+  root: ThreadedComment
+): Array<
+  ThreadedComment & {
+    parentAuthor?: string;
+    parentBodySnippet?: string;
+    realDepth: number;
+    parent_comment_id?: string | null;
+  }
+> {
+  const flat: Array<
+    ThreadedComment & {
+      parentAuthor?: string;
+      parentBodySnippet?: string;
+      realDepth: number;
+      parent_comment_id?: string | null;
+    }
+  > = [];
+  const walk = (node: ThreadedComment, realDepth: number, parentAuthor?: string, parentBodySnippet?: string) => {
+    node.children.forEach((child) => {
+      const snippet =
+        child.parent_comment_id === node.id && node.body
+          ? `${node.body.slice(0, 80)}${node.body.length > 80 ? "…" : ""}`
+          : parentBodySnippet;
+      flat.push({
+        ...child,
+        parentAuthor,
+        parentBodySnippet: snippet,
+        realDepth,
+        parent_comment_id: child.parent_comment_id,
+      });
+      walk(child, realDepth + 1, child.profiles?.username ?? parentAuthor, snippet);
+    });
+  };
+  walk(root, 1, root.profiles?.username ?? undefined, undefined);
+  return flat;
+}
+
 export const CatchComments = memo(
   ({ catchId, catchOwnerId, catchTitle, currentUserId, isAdmin = false, targetCommentId }: CatchCommentsProps) => {
-    function flattenReplies(
-      root: ThreadedComment
-    ): Array<ThreadedComment & { parentAuthor?: string; parentBodySnippet?: string; realDepth: number }> {
-      const flat: Array<ThreadedComment & { parentAuthor?: string; parentBodySnippet?: string; realDepth: number }> =
-        [];
-      const walk = (
-        node: ThreadedComment,
-        realDepth: number,
-        parentAuthor?: string,
-        parentBodySnippet?: string
-      ) => {
-        node.children.forEach((child) => {
-          const snippet =
-            child.parent_comment_id === node.id && node.body
-              ? `${node.body.slice(0, 80)}${node.body.length > 80 ? "…" : ""}`
-              : parentBodySnippet;
-          flat.push({ ...child, parentAuthor, parentBodySnippet: snippet, realDepth });
-          walk(child, realDepth + 1, child.profiles?.username ?? parentAuthor, snippet);
-        });
-      };
-      walk(root, 1, root.profiles?.username ?? undefined, undefined);
-      return flat;
-    }
+    const [reportedComments, setReportedComments] = useState<Record<string, boolean>>({});
 
     const { user } = useAuth();
     const { commentsTree, isLoading, refetch, addLocalComment, markLocalCommentDeleted } = useCatchComments(catchId);
@@ -82,12 +135,29 @@ export const CatchComments = memo(
     const [deleteLoadingId, setDeleteLoadingId] = useState<string | null>(null);
     const [visibleRootCount, setVisibleRootCount] = useState(INITIAL_VISIBLE_ROOTS);
     const [visibleRepliesByRoot, setVisibleRepliesByRoot] = useState<Record<string, number>>({});
+    const flatRepliesByRoot = useMemo(() => {
+      const map: Record<
+        string,
+        Array<
+          ThreadedComment & {
+            parentAuthor?: string;
+            parentBodySnippet?: string;
+            realDepth: number;
+            parent_comment_id?: string | null;
+          }
+        >
+      > = {};
+      commentsTree.forEach((root) => {
+        map[root.id] = flattenReplies(root);
+      });
+      return map;
+    }, [commentsTree]);
     const totalComments = useMemo(() => {
       return commentsTree.reduce((sum, root) => {
-        const repliesFlat = flattenReplies(root);
+        const repliesFlat = flatRepliesByRoot[root.id] ?? [];
         return sum + 1 + repliesFlat.length; // root + all descendants
       }, 0);
-    }, [commentsTree]);
+    }, [commentsTree, flatRepliesByRoot]);
 
     const { checkLimit, isLimited, attemptsRemaining, resetIn } = useRateLimit({
       maxAttempts: 30,
@@ -150,23 +220,24 @@ export const CatchComments = memo(
         }
 
         const nowIso = new Date().toISOString();
-        addLocalComment({
+        const optimistic = buildOptimisticComment({
           id: insertedCommentId ?? crypto.randomUUID(),
-          catch_id: catchId,
-          user_id: currentUserId,
+          catchId,
           body: trimmed,
-          parent_comment_id: parentCommentId,
-          created_at: nowIso,
-          updated_at: nowIso,
-          deleted_at: null,
-          is_admin_author: Boolean(isAdmin),
-          profiles: {
-            id: currentUserId,
-            username: user?.user_metadata?.username ?? user?.email ?? "Someone",
-            avatar_path: user?.user_metadata?.avatar_path ?? null,
-            avatar_url: user?.user_metadata?.avatar_url ?? null,
-          },
+          userId: currentUserId,
+          parentCommentId: parentCommentId,
+          nowIso,
+          currentUserProfile: user
+            ? {
+                id: user.id,
+                username: user.user_metadata?.username ?? user.email ?? "Someone",
+                avatar_path: user.user_metadata?.avatar_path ?? null,
+                avatar_url: user.user_metadata?.avatar_url ?? null,
+              }
+            : null,
+          isAdminAuthor: !!isAdmin,
         });
+        addLocalComment(optimistic);
 
         if (parentCommentId === null) {
           setTopLevelError(null);
@@ -177,7 +248,7 @@ export const CatchComments = memo(
         setIsPosting(false);
         return true;
       },
-      [addLocalComment, catchId, checkLimit, currentUserId, refetch, user?.user_metadata?.avatar_path, user?.user_metadata?.avatar_url, user?.user_metadata?.username]
+      [addLocalComment, catchId, checkLimit, currentUserId, isAdmin, refetch, user]
     );
 
     const handleDelete = useCallback(
@@ -215,7 +286,14 @@ export const CatchComments = memo(
 
     const renderCommentRow = (
       comment: ThreadedComment,
-      options: { isRoot: boolean; realDepth?: number; parentAuthor?: string; parentBodySnippet?: string }
+      options: {
+        isRoot: boolean;
+        realDepth?: number;
+        parentAuthor?: string;
+        parentBodySnippet?: string;
+        parentId?: string | null;
+        previousSiblingId?: string | null;
+      }
     ): JSX.Element => {
       const isOwner = currentUserId === comment.user_id;
       const canDelete = (isOwner || isAdmin) && !comment.deleted_at;
@@ -223,7 +301,12 @@ export const CatchComments = memo(
       const replyDraft = replyDrafts[comment.id] ?? "";
       const indentPx = options.isRoot ? 0 : REPLY_INDENT_PX;
       const isOp = comment.user_id === catchOwnerId;
-      const isAdminAuthor = comment.is_admin_author ?? false;
+      const isAdminAuthor = comment.is_admin_author === true;
+      const displayName = getDisplayName(comment);
+      const rootContainerClass =
+        "flex-1 min-w-0 space-y-2 rounded-xl border border-border/60 bg-background px-4 py-3";
+      const replyContainerClass = "flex-1 min-w-0 space-y-2 px-2";
+      const bodyBubbleClass = "rounded-2xl bg-muted/40 px-4 py-3 text-sm leading-relaxed text-foreground max-w-prose";
 
       return (
         <div
@@ -235,7 +318,7 @@ export const CatchComments = memo(
             <Link
               to={getProfilePath({ username: comment.profiles?.username, id: comment.user_id })}
               className="focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-full shrink-0"
-              aria-label={`View ${comment.profiles?.username ?? "angler"}'s profile`}
+              aria-label={`View ${displayName}'s profile`}
             >
               <Avatar className="h-9 w-9">
                 <AvatarImage
@@ -250,51 +333,50 @@ export const CatchComments = memo(
               </Avatar>
             </Link>
             <div
-              className={
-                options.isRoot
-                  ? "flex-1 min-w-0 space-y-3 rounded-lg border border-border/70 bg-card px-4 py-4"
-                  : "flex-1 min-w-0 space-y-2 rounded-lg bg-muted/40 px-3 py-3 text-[15px]"
-              }
+              className={options.isRoot ? rootContainerClass : replyContainerClass}
               style={
                 activeReply === comment.id
                   ? { boxShadow: "0 0 0 1px var(--accent)", backgroundColor: "rgba(var(--accent-rgb),0.06)" }
                   : undefined
               }
             >
-      <div className="flex items-center gap-2">
-                <Link
-                  to={getProfilePath({ username: comment.profiles?.username, id: comment.user_id })}
-                  className={
-                options.isRoot
-                  ? "font-semibold text-foreground hover:text-primary transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded"
-                  : "font-medium text-foreground hover:text-primary transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded"
-              }
-                >
-                  {comment.profiles?.username ?? "Unknown angler"}
-                </Link>
-                {isOp && (
-                  <span className="text-[10px] uppercase tracking-wide rounded-full bg-primary/10 text-primary px-2 py-0.5">
-                    OP
-                  </span>
-                )}
-                {isAdminAuthor && (
-                  <span className="text-[10px] uppercase tracking-wide rounded-full bg-amber-100 text-amber-800 px-2 py-0.5">
-                    Admin
-                  </span>
-                )}
-                {/* TODO: Author admin badge: when comment author admin status is available (e.g., profiles.is_admin or join to admin_users), render an Admin pill here. */}
-                <span className="text-xs text-muted-foreground">
-                  {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
-                </span>
-                {isDeleted && <span className="text-xs text-muted-foreground">(deleted)</span>}
+              <div className="flex flex-wrap items-start gap-2">
+                <div className="flex items-center gap-2">
+                  <Link
+                    to={getProfilePath({ username: comment.profiles?.username, id: comment.user_id })}
+                    className={
+                      options.isRoot
+                      ? "font-semibold text-foreground hover:text-primary transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded"
+                      : "font-medium text-foreground hover:text-primary transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded"
+                    }
+                  >
+                    {displayName}
+                  </Link>
+                  {isOp && (
+                    <span className="text-[10px] uppercase tracking-wide rounded-full bg-primary/10 text-primary px-2 py-0.5">
+                      OP
+                    </span>
+                  )}
+                  {isAdminAuthor && (
+                    <span className="text-[10px] uppercase tracking-wide rounded-full bg-amber-100 text-amber-800 px-2 py-0.5">
+                      Admin
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground ml-auto">
+                  <span>{formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}</span>
+                  {isDeleted && <span>(deleted)</span>}
+                </div>
               </div>
-              <div className="rounded-lg bg-muted/40 px-4 py-3 text-sm text-foreground">
+              <div className={bodyBubbleClass}>
                 {options.parentAuthor ? (
                   <div className="mb-1 space-y-0.5 text-xs text-muted-foreground">
                     <div>
                       Replying to <span className="font-semibold text-foreground">@{options.parentAuthor}</span>
                     </div>
-                    {options.parentBodySnippet ? (
+                    {options.parentBodySnippet &&
+                    options.parentId &&
+                    options.previousSiblingId !== options.parentId ? (
                       <div className="text-[11px] text-muted-foreground/70 line-clamp-1">
                         “{options.parentBodySnippet}”
                       </div>
@@ -314,39 +396,56 @@ export const CatchComments = memo(
                   highlightMentions(comment.body)
                 )}
               </div>
-              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+              <div className="flex items-center gap-4 text-xs text-muted-foreground/80">
                 {!isDeleted && (
                   <button
                     type="button"
-                    className="inline-flex items-center gap-1 hover:text-foreground transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded"
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary hover:underline transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded"
                     onClick={() => setActiveReply((prev) => (prev === comment.id ? null : comment.id))}
-                    aria-label={`Reply to @${comment.profiles?.username ?? "comment"}`}
+                    aria-label={`Reply to @${displayName}`}
                   >
-                    <MessageSquareReply className="h-3 w-3" />
                     Reply
                   </button>
+                )}
+                {!isDeleted && (canDelete || !isOwner) && (
+                  <span className="text-[11px] text-muted-foreground/60">·</span>
                 )}
                 {canDelete && (
                   <button
                     type="button"
-                    className="hover:text-destructive/80 text-muted-foreground transition disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive focus-visible:ring-offset-2 rounded"
+                    className="text-[11px] text-muted-foreground hover:text-destructive/80 transition disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive focus-visible:ring-offset-2 rounded"
                     onClick={() => void handleDelete(comment.id)}
                     disabled={deleteLoadingId === comment.id}
                   >
                     {deleteLoadingId === comment.id ? "Removing…" : "Delete"}
                   </button>
                 )}
-                <ReportButton
-                  targetType="comment"
-                  targetId={comment.id}
-                  label="Report"
-                  className="text-destructive/80 hover:text-destructive"
-                />
+                {!isOwner && !isDeleted && (
+                  <span className="ml-auto">
+                    <ReportButton
+                      targetType="comment"
+                      targetId={comment.id}
+                      label="Report"
+                      className="text-[11px] text-muted-foreground/70 hover:text-destructive"
+                      onReported={() =>
+                        setReportedComments((prev) => ({
+                          ...prev,
+                          [comment.id]: true,
+                        }))
+                      }
+                    />
+                  </span>
+                )}
               </div>
+              {!isOwner && reportedComments[comment.id] ? (
+                <div className="mt-1 text-[11px] text-muted-foreground">
+                  Thanks, we’ve received your report.
+                </div>
+              ) : null}
               {activeReply === comment.id && !isDeleted && (
                 <div className="space-y-2">
                   <div className="text-xs text-muted-foreground">
-                    Replying to <span className="font-semibold text-foreground">@{comment.profiles?.username ?? "angler"}</span>
+                    Replying to <span className="font-semibold text-foreground">@{displayName}</span>
                   </div>
                   <Textarea
                     value={replyDraft}
@@ -356,11 +455,11 @@ export const CatchComments = memo(
                       setReplyErrors((prev) => ({ ...prev, [comment.id]: null }));
                     }}
                     rows={3}
-                    className="w-full"
-                    placeholder={`Reply to ${comment.profiles?.username ?? "this comment"}…`}
+                    className="w-full bg-background/60 rounded-md"
+                    placeholder={`Reply to ${displayName}…`}
                   />
                   {replyErrors[comment.id] ? (
-                    <p className="text-xs text-destructive">{replyErrors[comment.id]}</p>
+                    <p className="mt-1 text-xs text-destructive">{replyErrors[comment.id]}</p>
                   ) : null}
                   <div className="flex gap-2">
                     <Button
@@ -399,30 +498,30 @@ export const CatchComments = memo(
       if (!targetCommentId) return;
       const rootIndex = topLevelComments.findIndex((root) => {
         if (root.id === targetCommentId) return true;
-        const replies = flattenReplies(root);
+        const replies = flatRepliesByRoot[root.id] ?? [];
         return replies.some((r) => r.id === targetCommentId);
       });
       if (rootIndex >= 0 && rootIndex >= visibleRootCount) {
         setVisibleRootCount((count) => Math.max(count, rootIndex + 1));
       }
-    }, [targetCommentId, topLevelComments, visibleRootCount]);
+    }, [targetCommentId, topLevelComments, visibleRootCount, flatRepliesByRoot]);
 
     // Ensure the replies block is fully visible for the target
     useEffect(() => {
       if (!targetCommentId) return;
       const root = topLevelComments.find((r) => {
         if (r.id === targetCommentId) return true;
-        return flattenReplies(r).some((reply) => reply.id === targetCommentId);
+        return (flatRepliesByRoot[r.id] ?? []).some((reply) => reply.id === targetCommentId);
       });
       if (!root) return;
-      const replies = flattenReplies(root);
+      const replies = flatRepliesByRoot[root.id] ?? [];
       if (replies.some((r) => r.id === targetCommentId)) {
         setVisibleRepliesByRoot((prev) => ({
           ...prev,
           [root.id]: replies.length,
         }));
       }
-    }, [targetCommentId, topLevelComments]);
+    }, [targetCommentId, topLevelComments, flatRepliesByRoot]);
 
     const hasScrolledRef = useRef<string | null>(null);
 
@@ -471,7 +570,7 @@ export const CatchComments = memo(
             )}
           </div>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-8">
           {currentUserId && (
             <div className="space-y-3">
               <Textarea
@@ -509,9 +608,9 @@ export const CatchComments = memo(
           ) : topLevelComments.length === 0 ? (
             <p className="text-sm text-muted-foreground">No comments yet. Be the first to share one!</p>
           ) : (
-              <div className="space-y-6">
+              <div className="space-y-8">
               {visibleRoots.map((root) => {
-                const repliesFlat = flattenReplies(root);
+                const repliesFlat = flatRepliesByRoot[root.id] ?? [];
                 const totalReplies = repliesFlat.length;
                 const visible = visibleRepliesByRoot[root.id] ?? REPLIES_PAGE_SIZE;
                 const start = Math.max(0, totalReplies - visible);
@@ -519,24 +618,20 @@ export const CatchComments = memo(
                 const hiddenCount = totalReplies - visibleReplies.length;
 
                 return (
-                  <div key={root.id} className="w-full max-w-full min-w-0 space-y-3">
+                  <div key={root.id} className="w-full max-w-full min-w-0 space-y-2">
                     {renderCommentRow(root, { isRoot: true })}
                     {totalReplies > 0 && (
                       <>
-                        <div className="pl-2 text-xs text-muted-foreground">
-                          Thread · {totalReplies} repl{totalReplies === 1 ? "y" : "ies"}
+                        <div className="pl-2 text-[11px] text-muted-foreground/80">
+                          {`Thread — ${totalReplies} repl${totalReplies === 1 ? "y" : "ies"}`}
                         </div>
-                        <div className="relative mt-1 space-y-2" style={{ paddingLeft: REPLY_INDENT_PX + 4 }}>
-                          <div className="absolute left-1 top-3 bottom-3 w-px bg-muted-foreground/40" aria-hidden="true">
-                            <div className="absolute -top-2 left-[-2px] h-1.5 w-1.5 rounded-full bg-muted-foreground/60" />
-                            <div className="absolute -bottom-2 left-[-2px] h-1.5 w-1.5 rounded-full bg-muted-foreground/60" />
-                          </div>
-                          <div className="space-y-2 pl-4">
+                        <div className="mt-1 space-y-2 border-l border-border/40 pl-4" style={{ paddingLeft: REPLY_INDENT_PX }}>
+                          <div className="space-y-2">
                             {hiddenCount > 0 && (
                               <button
                                 type="button"
                                 className="text-xs text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded"
-                                aria-label={`View ${hiddenCount} more replies to @${root.profiles?.username ?? "comment"}`}
+                                aria-label={`View ${hiddenCount} more replies to @${getDisplayName(root)}`}
                                 onClick={() =>
                                   setVisibleRepliesByRoot((prev) => ({
                                     ...prev,
@@ -547,14 +642,17 @@ export const CatchComments = memo(
                                 View more replies ({hiddenCount})
                               </button>
                             )}
-                            {visibleReplies.map((reply) =>
-                              renderCommentRow(reply, {
+                            {visibleReplies.map((reply, idx) => {
+                              const previousId = idx > 0 ? visibleReplies[idx - 1]?.id ?? null : null;
+                              return renderCommentRow(reply, {
                                 isRoot: false,
                                 realDepth: reply.realDepth,
                                 parentAuthor: reply.parentAuthor,
                                 parentBodySnippet: reply.parentBodySnippet,
-                              })
-                            )}
+                                parentId: reply.parent_comment_id,
+                                previousSiblingId: previousId,
+                              });
+                            })}
                           </div>
                         </div>
                       </>
