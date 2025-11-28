@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Star, Trophy, Fish, BarChart3, Loader2, Settings, Sparkles } from "lucide-react";
+import { Star, Trophy, Fish, BarChart3, Loader2, Settings, Sparkles, Lock } from "lucide-react";
 import { getFreshwaterSpeciesLabel } from "@/lib/freshwater-data";
 import { createNotification } from "@/lib/notifications";
 import { isRateLimitError, getRateLimitMessage } from "@/lib/rateLimit";
@@ -25,6 +25,7 @@ interface Profile {
   avatar_path: string | null;
   avatar_url: string | null;
   bio: string | null;
+  is_private: boolean;
 }
 
 interface Catch {
@@ -154,7 +155,7 @@ const Profile = () => {
     const slugIsUuid = isUuid(slug);
     let query = supabase
       .from("profiles")
-      .select("id, username, avatar_path, avatar_url, bio")
+      .select("id, username, avatar_path, avatar_url, bio, is_private")
       .limit(1);
 
     query = slugIsUuid ? query.eq("id", slug) : query.eq("username", slug);
@@ -411,6 +412,8 @@ const Profile = () => {
     label: "Active",
     className: "border-emerald-300/60 bg-emerald-500/10 text-emerald-50",
   };
+  const canViewPrivateContent = !profile.is_private || isOwnProfile || isAdminViewer || isFollowing;
+  const isPrivateAndBlocked = profile.is_private && !canViewPrivateContent;
   const heroStatTiles = [
     {
       label: "Total catches",
@@ -701,7 +704,19 @@ const Profile = () => {
                 </Button>
               ) : null}
             </div>
-            {catches.length === 0 ? (
+            {isPrivateAndBlocked ? (
+              <div className="flex flex-col items-center gap-3 rounded-xl border border-slate-200 bg-white p-6 text-center shadow-sm">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+                  <Lock className="h-5 w-5" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-base font-semibold text-slate-900">This account is private</h3>
+                  <p className="text-sm text-slate-500">
+                    Only followers can see this angler&apos;s catches and detailed stats.
+                  </p>
+                </div>
+              </div>
+            ) : catches.length === 0 ? (
               <div className="flex flex-col items-center gap-3 rounded-xl border border-slate-200 bg-white p-6 text-center shadow-sm">
                 <Fish className="h-10 w-10 text-slate-400" />
                 <div className="space-y-1">

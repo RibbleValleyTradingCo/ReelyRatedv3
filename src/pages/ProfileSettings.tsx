@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import ProfileAvatarSection from "@/components/settings/ProfileAvatarSection";
 import { isAdminUser } from "@/lib/admin";
 import { Loader2, LogOut } from "lucide-react";
@@ -56,6 +57,8 @@ const ProfileSettings = () => {
   const [initialAvatarPath, setInitialAvatarPath] = useState<string | null>(null);
   const [legacyAvatarUrl, setLegacyAvatarUrl] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [isPrivate, setIsPrivate] = useState(false);
+  const [isUpdatingPrivacy, setIsUpdatingPrivacy] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -72,7 +75,7 @@ const ProfileSettings = () => {
         await Promise.all([
           supabase
             .from("profiles")
-            .select("username, full_name, avatar_path, avatar_url, bio")
+            .select("username, full_name, avatar_path, avatar_url, bio, is_private")
             .eq("id", user.id)
             .maybeSingle(),
           supabase.auth.getUser(),
@@ -102,6 +105,7 @@ const ProfileSettings = () => {
       setAvatarPath(storedPath);
       setInitialAvatarPath(storedPath);
       setLegacyAvatarUrl(legacyUrl);
+      setIsPrivate(profileData?.is_private ?? false);
       setIsLoading(false);
     };
 
@@ -240,6 +244,29 @@ const ProfileSettings = () => {
       toast.error("Something went wrong creating your export");
     } finally {
       setIsExporting(false);
+    }
+  };
+
+  const handlePrivacyToggle = async (nextValue: boolean) => {
+    if (!user) return;
+    try {
+      setIsUpdatingPrivacy(true);
+      const { error } = await supabase
+        .from("profiles")
+        .update({ is_private: nextValue })
+        .eq("id", user.id);
+
+      if (error) {
+        throw error;
+      }
+
+      setIsPrivate(nextValue);
+      toast.success(nextValue ? "Your account is now private." : "Your account is now public.");
+    } catch (error) {
+      console.error("Failed to update privacy", error);
+      toast.error("Unable to update profile privacy right now.");
+    } finally {
+      setIsUpdatingPrivacy(false);
     }
   };
 
@@ -552,6 +579,40 @@ const ProfileSettings = () => {
                   "Download my data (JSON)"
                 )}
               </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-xl border border-slate-200 bg-white shadow-sm">
+            <CardHeader className="px-5 pb-2 pt-5 md:px-8 md:pt-8 md:pb-4">
+              <CardTitle className="text-lg">Profile privacy</CardTitle>
+              <p className="text-sm text-slate-600">
+                Only people who follow you can see your catches. Your profile may still appear in search and leaderboards.
+              </p>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4 px-5 pb-5 md:flex-row md:items-center md:justify-between md:px-8 md:pb-8">
+              <p className="text-sm text-slate-600 md:max-w-lg">
+                Toggle privacy to control who can view your catches and detailed stats.
+              </p>
+              <div className="flex items-center gap-3">
+                <Label htmlFor="privateAccount" className="text-sm font-medium text-slate-800">
+                  Private account
+                </Label>
+                <Switch
+                  id="privateAccount"
+                  checked={isPrivate}
+                  onCheckedChange={(checked) => {
+                    if (!isUpdatingPrivacy) {
+                      void handlePrivacyToggle(checked);
+                    }
+                  }}
+                  disabled={isUpdatingPrivacy}
+                />
+                {isUpdatingPrivacy ? (
+                  <span className="text-xs text-slate-500">Saving…</span>
+                ) : (
+                  <span className="text-xs text-slate-500">{isPrivate ? "Enabled" : "Disabled"}</span>
+                )}
+              </div>
             </CardContent>
           </Card>
 
