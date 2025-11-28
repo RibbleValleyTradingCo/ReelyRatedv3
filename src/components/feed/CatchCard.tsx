@@ -6,6 +6,7 @@ import { Star, MessageCircle, Fish, Heart } from "lucide-react";
 import { getFreshwaterSpeciesLabel } from "@/lib/freshwater-data";
 import { shouldShowExactLocation } from "@/lib/visibility";
 import { resolveAvatarUrl } from "@/lib/storage";
+import { cn } from "@/lib/utils";
 
 type CustomFields = {
   species?: string;
@@ -76,9 +77,13 @@ const calculateAverageRating = (ratings: { rating: number }[]) => {
 export const CatchCard = memo(({ catchItem, userId }: CatchCardProps) => {
   const navigate = useNavigate();
 
+  const ratingsCount = catchItem.ratings.length;
+  const commentsCount = catchItem.comments.length;
+  const reactionsCount = catchItem.reactions?.length ?? 0;
+
   return (
     <Card
-      className="cursor-pointer hover:shadow-lg transition-shadow"
+      className="cursor-pointer overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
       onClick={() => navigate(`/catch/${catchItem.id}`)}
       data-testid="catch-card"
     >
@@ -89,21 +94,25 @@ export const CatchCard = memo(({ catchItem, userId }: CatchCardProps) => {
           className="w-full h-64 object-cover rounded-t-lg"
         />
         {catchItem.species && catchItem.weight && (
-          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 text-white">
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent p-4 text-white">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Fish className="w-5 h-5" />
-                <span className="font-bold text-lg">{formatSpecies(catchItem)}</span>
+                <span className="font-semibold text-base md:text-lg drop-shadow">{formatSpecies(catchItem)}</span>
               </div>
-              <span className="font-bold text-xl">{formatWeight(catchItem.weight, catchItem.weight_unit)}</span>
+              <span className="font-bold text-xl md:text-2xl drop-shadow">
+                {formatWeight(catchItem.weight, catchItem.weight_unit)}
+              </span>
             </div>
           </div>
         )}
       </CardContent>
       <CardFooter className="flex flex-col items-start gap-3 p-4">
-        <h3 className="font-semibold text-lg" data-testid="catch-title">{catchItem.title}</h3>
+        <h3 className="text-lg font-semibold text-gray-900 md:text-xl" data-testid="catch-title">
+          {catchItem.title}
+        </h3>
         <div className="flex items-center gap-2 w-full">
-          <Avatar className="w-8 h-8">
+          <Avatar className="w-9 h-9">
             <AvatarImage
               src={
                 resolveAvatarUrl({
@@ -116,37 +125,44 @@ export const CatchCard = memo(({ catchItem, userId }: CatchCardProps) => {
               {catchItem.profiles?.username?.[0]?.toUpperCase() ?? "A"}
             </AvatarFallback>
           </Avatar>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-sm font-medium text-slate-700">
             {catchItem.profiles?.username ?? "Unknown angler"}
           </span>
         </div>
         {catchItem.location && (
-          <p className="text-sm text-muted-foreground truncate w-full">
+          <p className="text-sm text-slate-500 truncate w-full">
             {shouldShowExactLocation(catchItem.hide_exact_spot, catchItem.user_id, userId)
               ? catchItem.location
               : "Undisclosed venue"}
           </p>
         )}
-        <div className="flex items-center gap-4 w-full">
-          <div className="flex items-center gap-1">
-            <Star className="w-4 h-4 text-accent fill-accent" />
-            <span className="text-sm font-medium">
+        <div className="flex items-center gap-5 w-full pt-1">
+          <div className="flex items-center gap-1.5">
+            <Star className="w-4 h-4 text-amber-500 fill-amber-400/90" />
+            <span className="text-sm font-semibold text-slate-900">
               {calculateAverageRating(catchItem.ratings)}
             </span>
-            <span className="text-xs text-muted-foreground">
-              ({catchItem.ratings.length})
+            <span className="text-xs text-slate-500">
+              ({ratingsCount})
             </span>
           </div>
-          <div className="flex items-center gap-1">
-            <MessageCircle className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm">{catchItem.comments.length}</span>
+          <div className="flex items-center gap-1.5">
+            <MessageCircle className={cn("w-4 h-4", commentsCount === 0 ? "text-slate-300" : "text-slate-500")} />
+            <span className={cn("text-sm", commentsCount === 0 ? "text-slate-400" : "text-slate-600")}>
+              {commentsCount}
+            </span>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
             <Heart
-              className="w-4 h-4 text-primary"
-              fill={(catchItem.reactions?.length ?? 0) > 0 ? "currentColor" : "none"}
+              className={cn(
+                "w-4 h-4",
+                reactionsCount === 0 ? "text-slate-300" : "text-primary"
+              )}
+              fill={reactionsCount > 0 ? "currentColor" : "none"}
             />
-            <span className="text-sm">{catchItem.reactions?.length ?? 0}</span>
+            <span className={cn("text-sm", reactionsCount === 0 ? "text-slate-400" : "text-slate-600")}>
+              {reactionsCount}
+            </span>
           </div>
         </div>
       </CardFooter>

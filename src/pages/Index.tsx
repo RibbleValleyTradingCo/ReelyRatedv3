@@ -3,6 +3,7 @@ import { HeroLeaderboardSpotlight } from "@/components/HeroLeaderboardSpotlight"
 import { LeaderboardSection } from "@/components/LeaderboardSection";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
+import { PulsingDot } from "@/components/PulsingDot";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { shouldShowExactLocation } from "@/lib/visibility";
@@ -16,37 +17,36 @@ type FeatureHighlight = {
   title: string;
   description: string;
   icon: LucideIcon;
-  href: string;
   supporting?: string;
+  href?: string;
 };
 
 const featureHighlights: FeatureHighlight[] = [
   {
-    title: "Precision Catch Logs",
+    title: "Log every catch with precision",
     description:
-      "Record species, tackle, conditions, and tactics in seconds.",
+      "Record weight, species, tactics, conditions and photos in seconds. Everything drops into a searchable logbook you can rely on.",
     icon: NotebookPen,
     href: "/add-catch",
   },
   {
-    title: "Community Scorecards",
+    title: "Climb community scoreboards",
     description:
-      "Share with anglers who rate, react, and champion your wins.",
+      "Your catches earn scores based on weight, detail and community ratings, so you can see exactly where you rank on each venue.",
     icon: Users,
     href: "/feed",
   },
   {
-    title: "Technique Analytics",
-    description: "Spot patterns across tides, moon phases, and gear history.",
+    title: "Spot the patterns that catch fish",
+    description:
+      "See which baits, rigs and methods actually convert into landed fish across different venues, seasons and conditions.",
     icon: Activity,
-    href: "/insights",
   },
   {
-    title: "Mapped Venues",
-    description: "Surface swims and waterways the community is exploring.",
+    title: "Map your proven waters",
+    description:
+      "Save your favourite venues, swims and pegs with notes and conditions, so you always know where to start on your next session.",
     icon: MapPin,
-    supporting: "Venues mapped with shared catch history.",
-    href: "/search",
   },
 ];
 
@@ -86,19 +86,25 @@ const featureAccents = [
 ] as const;
 const workflowSteps = [
   {
-    title: "Snap & Log",
-    description: "Snap the fish, note weight, tag gear.",
+    title: "Log the catch while you’re on the bank",
+    description:
+      "Snap a photo, add species, weight and a quick note. ReelyRated timestamps and stores it so you never lose the details.",
     icon: Camera,
+    supporting: "Takes about 30 seconds per catch.",
   },
   {
-    title: "Pin the Spot",
-    description: "Drop the pin, choose who gets access.",
-    icon: MapPin,
-  },
-  {
-    title: "Earn the Score",
-    description: "Collect ratings, spot trends, climb fast.",
+    title: "Share it and get real-world ratings",
+    description:
+      "Once your catch is live, other anglers score it on detail and quality. Your profile and venue scores update in real time, and standout catches can hit the spotlight and leaderboards.",
     icon: Star,
+    supporting: "Ratings happen automatically once it’s live.",
+  },
+  {
+    title: "Turn those sessions into a pattern",
+    description:
+      "See which tactics, venues and conditions actually work for you in your logbook and insights. Next time out, you’re not guessing – you’re repeating what catches fish.",
+    icon: MapPin,
+    supporting: "Check your trends in under a minute before you head out.",
   },
 ];
 
@@ -106,20 +112,14 @@ const stepAccents = [
   {
     badge: "text-blue-600",
     iconBg: "bg-gradient-to-br from-blue-500 to-blue-400 text-white",
-    barGradient: "from-blue-500 via-cyan-500 to-emerald-500",
-    glow: "bg-gradient-to-r from-blue-500/10 via-cyan-500/10 to-emerald-500/10",
   },
   {
     badge: "text-cyan-600",
     iconBg: "bg-gradient-to-br from-cyan-500 to-teal-400 text-white",
-    barGradient: "from-cyan-500 via-emerald-500 to-teal-400",
-    glow: "bg-gradient-to-r from-cyan-500/10 via-emerald-500/10 to-teal-400/10",
   },
   {
     badge: "text-emerald-600",
     iconBg: "bg-gradient-to-br from-emerald-500 to-teal-500 text-white",
-    barGradient: "from-emerald-500 via-lime-400 to-teal-500",
-    glow: "bg-gradient-to-r from-emerald-500/10 via-lime-400/10 to-teal-500/10",
   },
 ] as const;
 
@@ -137,7 +137,7 @@ const FeatureHighlights = ({ compact = false }: { compact?: boolean }) => (
           compact && "text-3xl md:text-4xl",
         )}
       >
-        Built to keep every detail of your time on the water
+        Built to remember every day on the water
       </h2>
       <p
         className={cn(
@@ -145,8 +145,8 @@ const FeatureHighlights = ({ compact = false }: { compact?: boolean }) => (
           compact ? "max-w-xl" : "mx-auto max-w-2xl",
         )}
       >
-        From the tides and tackle to the cheers from your crew—ReelyRated stitches together the full
-        story so you can refine your craft faster.
+        From first cast to last light, ReelyRated keeps every detail so you can repeat the days that
+        work and fix the ones that don’t.
       </p>
     </div>
 
@@ -170,7 +170,7 @@ const FeatureHighlights = ({ compact = false }: { compact?: boolean }) => (
             >
               <div
                 className={cn(
-                  "flex h-12 w-12 flex-none items-center justify-center rounded-xl text-white shadow-md transition-transform duration-300 group-hover:-rotate-3 group-hover:scale-110",
+                  "flex h-12 w-12 flex-none items-center justify-center rounded-xl bg-white/80 shadow-sm ring-1 ring-slate-100 transition-transform duration-300 group-hover:-rotate-3 group-hover:scale-110",
                   accent.tile,
                 )}
               >
@@ -206,7 +206,7 @@ const FeatureHighlights = ({ compact = false }: { compact?: boolean }) => (
               <div className="relative space-y-6">
                 <div
                   className={cn(
-                    "flex h-16 w-16 items-center justify-center rounded-2xl text-white shadow-lg transition-transform duration-300 ease-out group-hover:-rotate-3 group-hover:scale-[1.08]",
+                    "flex h-16 w-16 items-center justify-center rounded-2xl bg-white/80 shadow-md ring-1 ring-slate-100 transition-transform duration-300 ease-out group-hover:-rotate-3 group-hover:scale-[1.08]",
                     accent.tile,
                   )}
                 >
@@ -227,16 +227,18 @@ const FeatureHighlights = ({ compact = false }: { compact?: boolean }) => (
                       {supporting}
                     </p>
                   ) : null}
-                  <a
-                    href={href}
-                    className={cn(
-                      "group/link inline-flex items-center gap-2 text-sm font-semibold transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-                      accent.linkColor,
-                    )}
-                  >
-                    Learn more
-                    <MoveRight className="h-4 w-4 transition-transform duration-300 group-hover/link:translate-x-1" aria-hidden="true" />
-                  </a>
+                  {href ? (
+                    <a
+                      href={href}
+                      className={cn(
+                        "group/link inline-flex items-center gap-2 text-sm font-semibold transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+                        accent.linkColor,
+                      )}
+                    >
+                      Learn more
+                      <MoveRight className="h-4 w-4 transition-transform duration-300 group-hover/link:translate-x-1" aria-hidden="true" />
+                    </a>
+                  ) : null}
                 </div>
               </div>
             </article>
@@ -365,10 +367,7 @@ const StatsShowcase = ({ stats, isLoading, dataError }: StatsShowcaseProps) => {
     <div className="space-y-12 md:space-y-16">
       <div className="space-y-6 text-center">
         <span className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-blue-500 via-cyan-500 to-emerald-500 px-5 py-2 text-xs font-extrabold uppercase tracking-[0.36em] text-white shadow-[0_12px_30px_-18px_rgba(14,165,233,0.7)]">
-          <span className="relative h-2 w-2">
-            <span className="absolute inset-0 rounded-full bg-white/70 motion-safe:animate-ping" />
-            <span className="absolute inset-[4px] rounded-full bg-white" />
-          </span>
+          <PulsingDot />
           Live Community Pulse
         </span>
         <h2 className="text-4xl font-black text-gray-900 md:text-5xl">
@@ -622,15 +621,11 @@ const Index = () => {
                   From first bite to bragging rights in three clean steps
                 </h2>
                 <p className="mx-auto max-w-2xl text-base leading-relaxed text-gray-600 md:text-lg">
-                  Codify your catch without breaking your stride. ReelyRated guides you through the essentials so your logbooks stay consistent, searchable, and ready to show off.
+                  Log your catch on the bank, let the community rate it, and use the data to plan your next session.
                 </p>
               </div>
               <div className="mt-8">
                 <div className="relative mx-auto max-w-3xl">
-                  <span
-                    className="pointer-events-none absolute left-9 top-8 bottom-8 w-[3px] rounded-full bg-[repeating-linear-gradient(to_bottom,rgba(59,130,246,0.55)_0,rgba(34,197,233,0.55)_8px,transparent_8px,transparent_18px)] motion-safe:animate-pulse"
-                    aria-hidden="true"
-                  />
                   <div className="flex flex-col gap-3 md:gap-4">
                     {workflowSteps.map((step, index) => {
                       const accent = stepAccents[index] ?? stepAccents[0];
@@ -638,18 +633,10 @@ const Index = () => {
                       return (
                         <div
                           key={step.title}
-                          className="group relative z-10 overflow-hidden rounded-3xl border border-white/60 bg-white/95 p-5 shadow-[0_20px_40px_-32px_rgba(15,118,110,0.35)] backdrop-blur transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_30px_60px_-34px_rgba(6,148,162,0.45)] motion-safe:animate-in motion-safe:fade-in-50 motion-safe:slide-in-from-bottom-4 motion-safe:duration-500 md:p-6"
+                          className="group relative z-10 overflow-hidden rounded-3xl border border-slate-200/80 bg-white/95 p-5 shadow-[0_18px_38px_-26px_rgba(15,118,110,0.28)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_26px_54px_-28px_rgba(6,148,162,0.35)] motion-safe:animate-in motion-safe:fade-in-50 motion-safe:slide-in-from-bottom-4 motion-safe:duration-500 md:p-6"
                           style={{ animationDelay: `${index * 80}ms` }}
                         >
-                          <div className={cn("pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100", accent.glow)} aria-hidden="true" />
-                          <span
-                            className={cn(
-                              "absolute left-0 top-4 bottom-4 w-1.5 rounded-full bg-gradient-to-b",
-                              accent.barGradient,
-                            )}
-                            aria-hidden="true"
-                          />
-                          <div className="relative flex items-center gap-4 md:gap-5">
+                          <div className="relative flex items-start gap-4 md:gap-5">
                             <div
                               className={cn(
                                 "flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl text-white shadow-lg transition-transform duration-300 group-hover:-rotate-3 group-hover:scale-110 md:h-14 md:w-14",
@@ -658,19 +645,21 @@ const Index = () => {
                             >
                               <step.icon className="h-6 w-6 md:h-7 md:w-7" />
                             </div>
-                            <div className="flex flex-col gap-1.5 text-left">
-                              <span
-                                className={cn(
-                                  "text-xs font-bold uppercase tracking-[0.28em]",
-                                  accent.badge,
-                                )}
-                              >
-                                Step {index + 1}
-                              </span>
+                            <div className="flex flex-col gap-2 text-left">
+                              <div className="inline-flex items-center gap-2">
+                                <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600">
+                                  Step {index + 1}
+                                </span>
+                              </div>
                               <h3 className="text-xl font-semibold text-gray-900 md:text-2xl">
                                 {step.title}
                               </h3>
                               <p className="text-sm text-gray-600">{step.description}</p>
+                              {step.supporting ? (
+                                <p className="text-xs font-medium uppercase tracking-wide text-primary/80">
+                                  {step.supporting}
+                                </p>
+                              ) : null}
                             </div>
                           </div>
                         </div>

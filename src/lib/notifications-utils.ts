@@ -36,6 +36,11 @@ export const resolveNotificationPath = (notification: NotificationRow): string |
       : null);
 
   if (notification.type === "admin_moderation") {
+    const action = typeof extraData.action === "string" ? extraData.action : null;
+    if (action === "clear_moderation") {
+      return `${getProfilePath({ id: notification.user_id })}#notifications`;
+    }
+
     const targetCatchId = notification.catch_id ?? catchIdFromExtra;
     if (targetCatchId) {
       return `/catch/${targetCatchId}`;
@@ -50,7 +55,7 @@ export const resolveNotificationPath = (notification: NotificationRow): string |
   }
 
   if (notification.type === "admin_warning") {
-    return getProfilePath({ id: notification.user_id });
+    return `${getProfilePath({ id: notification.user_id })}#notifications`;
   }
 
   if (catchTypes.has(notification.type)) {

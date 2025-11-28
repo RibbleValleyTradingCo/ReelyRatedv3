@@ -56,9 +56,16 @@ const actionLabels: Record<string, string> = {
   delete_catch: "Deleted Catch",
   delete_comment: "Deleted Comment",
   warn_user: "Warned User",
-  suspend_user: "Suspended User",
   restore_catch: "Restored Catch",
   restore_comment: "Restored Comment",
+  clear_moderation: "Restrictions lifted",
+  suspend_user: "Suspended User",
+};
+
+const formatActionLabel = (action: string) => {
+  if (actionLabels[action]) return actionLabels[action];
+  const cleaned = action.replace(/_/g, " ");
+  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
 };
 
 const actionOptions = [{ label: "All actions", value: "all" as const }].concat(
@@ -278,7 +285,7 @@ const AdminAuditLog = () => {
         ...filteredRows.map((row) => {
           const timestamp = format(new Date(row.created_at), "yyyy-MM-dd HH:mm:ssXXX");
           const adminName = row.admin?.username ?? row.admin?.id ?? "Unknown";
-          const actionLabel = actionLabels[row.action] ?? row.action;
+          const actionLabel = formatActionLabel(row.action);
           const reason = row.reason;
           const details = row.details ? JSON.stringify(row.details) : "";
 
@@ -397,7 +404,7 @@ const AdminAuditLog = () => {
             </span>
             {actionFilter !== "all" && (
               <span className="rounded-full bg-muted px-3 py-1">
-                {actionLabels[actionFilter] ?? actionFilter}
+                {actionFilter === "all" ? "All actions" : formatActionLabel(actionFilter)}
               </span>
             )}
             {searchTerm.trim() ? <span className="rounded-full bg-muted px-3 py-1">“{searchTerm.trim()}”</span> : null}
@@ -444,7 +451,7 @@ const AdminAuditLog = () => {
                   <TableBody>
                     {filteredRows.map((row) => {
                       const adminName = row.admin?.username ?? row.admin?.id ?? "Unknown";
-                      const displayAction = actionLabels[row.action] ?? row.action;
+                      const displayAction = formatActionLabel(row.action);
                       const detailsText = row.details ? JSON.stringify(row.details, null, 2) : "—";
                       const targetLabel =
                         row.target_type === "user"

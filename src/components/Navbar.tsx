@@ -135,7 +135,7 @@ export const Navbar = () => {
   const resolvedAvatarUrl = resolveAvatarUrl({ path: avatarPath, legacyUrl: avatarUrl });
 
   const renderAuthIcons = () => (
-    <div className="flex items-center gap-3 md:gap-4">
+    <div className="flex items-center gap-2 sm:gap-3 md:gap-4">
       <button
         type="button"
         className={cn(iconButtonBase, "hidden sm:inline-flex")}
@@ -149,7 +149,7 @@ export const Navbar = () => {
         )}
       </button>
 
-      <NotificationsBell />
+      <NotificationsBell buttonClassName="h-10 w-10 sm:h-11 sm:w-11 rounded-xl" />
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -221,7 +221,7 @@ export const Navbar = () => {
   );
 
   const renderGuestActions = () => (
-    <div className="flex items-center gap-3 md:gap-4">
+    <div className="flex items-center gap-2 sm:gap-3 md:gap-4">
       <Button
         asChild
         size="sm"
@@ -241,8 +241,8 @@ export const Navbar = () => {
 
   return (
     <header className="fixed inset-x-0 top-0 z-50 border-b border-slate-200/80 bg-white/90 backdrop-blur">
-      <div className="mx-auto w-full max-w-6xl px-4 md:px-6 lg:px-8">
-        <div className="flex h-16 items-center justify-between gap-4 md:h-[72px]">
+      <div className="mx-auto w-full max-w-6xl px-3 md:px-6 lg:px-8">
+        <div className="flex h-16 items-center justify-between gap-3 md:gap-4 md:h-[72px]">
           <Link to="/" className="group flex items-center gap-3">
             <LogoMark className="h-10 w-10 md:h-11 md:w-11 transition-transform duration-200 hover:scale-105" />
             <div className="leading-tight">

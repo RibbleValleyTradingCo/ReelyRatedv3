@@ -32,7 +32,7 @@ This document describes how the admin area currently works: entry points, pages,
     - `admin_warning`
     - `admin_moderation`
   - Rendered in `NotificationListItem`.
-  - Main click uses `resolveNotificationPath` to go to the relevant catch/comment/profile.
+  - Main click uses `resolveNotificationPath` to go to the relevant catch/comment/profile or, for moderation-related user notifications, to the profile notifications view (`#notifications`) so the account status card is visible.
   - Admins see an extra “View moderation” link that goes to `/admin/users/:userId/moderation`.
 
 - **Profile page**
@@ -69,7 +69,8 @@ Primary **triage hub** for user reports.
 - Filter by **type**: `all | catch | comment | profile`.
 - Filter by **status**: `all | open | resolved | dismissed`.
 - Sort by **newest/oldest**.
-- Pagination via range (page size is defined in code).
+- Pagination via range (page size = 20).
+- Optional user filter pill: shows `Reports about @username` when known, otherwise a neutral “Reports about this user” (never shows raw UUID).
 
 **UI behaviour:**
 
@@ -108,6 +109,7 @@ Read-only **moderation log** viewer.
 
 - **Date range presets:** 24h / 7 days (default) / 30 days / All.
 - **Action filter:** by `action` (warn_user, delete_comment, etc.).
+  - Includes clear_moderation (“Restrictions lifted”) and other logged actions.
 - **Search:** free text over admin, reason, target.
 - **Sort:** newest/oldest.
 - **Pagination:** page size ~100.
@@ -204,13 +206,15 @@ Read-only **moderation log** viewer.
   - Inserts into `user_warnings`.
   - Updates `profiles.warn_count`, `moderation_status`, `suspension_until`.
   - Inserts `moderation_log` entry.
-  - Sends `admin_warning` notification to the user.
+- Sends `admin_warning` notification to the user.
+  - Notification extra_data includes severity, reason, duration, suspension_until, new_status for friendly rendering.
 
 - RPCs: `admin_delete_catch`, `admin_delete_comment`, `admin_restore_catch`, `admin_restore_comment`:
   - Admin-only.
   - Soft-delete/restore content.
   - Insert `moderation_log` entries.
   - Send `admin_moderation` notifications to owners.
+  - `admin_clear_moderation_status` logs `clear_moderation` and sends an `admin_moderation` notification with “restrictions lifted” copy.
 
 ### 3.3 Notifications
 
@@ -230,12 +234,15 @@ Read-only **moderation log** viewer.
 ## 4. Known Gaps / Future Work
 
 - **Enforcement** of `moderation_status` and `suspension_until` is not yet implemented:
-  - Users marked suspended/banned can still post comments/catches.
+  - Users marked suspended/banned can still post comments/catches. **(Outdated: enforcement now applied via `assert_moderation_allowed` on comments and a catch insert trigger.)**
 - **Scaling concerns:**
-  - Warnings and history are not fully paginated; long histories may need better paging/filters.
+  - Warnings and history are capped at 20 newest rows (no pagination yet); long histories may need better paging/filters in later phases.
   - Reports and audit logs can grow large; current pagination is basic but works.
 - **Consistency:**
   - The same moderation info appears in multiple places (Reports drawer, Moderation page, Audit Log).
   - We should treat **Admin User Moderation** as the canonical per-user view and keep others as “summaries”.
 
 This document should be kept in sync whenever we change admin flows, routes, or moderation behaviour.
+
+<!-- Aligned with current implementation as of this update. -->
+- **Limits:** Warnings and moderation history are capped at the 20 newest rows; a hint appears when the cap is reached.

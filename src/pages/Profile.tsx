@@ -17,6 +17,7 @@ import { resolveAvatarUrl } from "@/lib/storage";
 import { ProfileNotificationsSection } from "@/components/ProfileNotificationsSection";
 import ProfileNotFound from "@/components/ProfileNotFound";
 import { isAdminUser } from "@/lib/admin";
+import { cn } from "@/lib/utils";
 
 interface Profile {
   id: string;
@@ -111,6 +112,7 @@ const Profile = () => {
   const [followersCount, setFollowersCount] = useState(0);
   const [followingProfiles, setFollowingProfiles] = useState<FollowingProfile[]>([]);
   const [isAdminViewer, setIsAdminViewer] = useState(false);
+  const [bioExpanded, setBioExpanded] = useState(false);
 
   const profileId = profile?.id ?? null;
   const isOwnProfile = user?.id === profileId;
@@ -402,9 +404,13 @@ const Profile = () => {
 
   const profileBio = profile.bio && profile.bio.trim().length > 0
     ? profile.bio
-    : "No intro yet. Add your favourite waters and target species.";
+    : "No intro yet. Tell others where you fish and what you target.";
 
   const totalFollowers = followersCount ?? 0;
+  const statusPill = {
+    label: "Active",
+    className: "bg-white/10 text-white border border-white/20",
+  };
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -432,11 +438,19 @@ const Profile = () => {
                   <div className="flex w-full flex-1 flex-col items-center gap-3 text-center md:items-start md:text-left">
                     <span className="mt-2 inline-flex items-center gap-1 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-100 shadow-sm md:mt-0">
                       <Sparkles className="h-3 w-3" aria-hidden="true" />
-                      {isOwnProfile ? "Your angler profile" : "Angler spotlight"}
+                      {isOwnProfile ? "My account" : "Angler spotlight"}
                     </span>
-                    <h1 className="text-3xl font-bold text-white leading-tight line-clamp-2 md:text-4xl md:leading-snug md:line-clamp-none">
+                    <h1 className="text-3xl font-bold leading-tight text-white line-clamp-2 md:text-4xl md:leading-snug md:line-clamp-none">
                       {profile.username}
                     </h1>
+                    <div className="flex flex-wrap items-center justify-center gap-2 md:justify-start">
+                      <span className="inline-flex items-center gap-1 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-medium text-white/90">
+                        @{profile.username}
+                      </span>
+                      <span className={cn("inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold", statusPill.className)}>
+                        {statusPill.label}
+                      </span>
+                    </div>
                     {isEditing && isOwnProfile ? (
                       <div className="space-y-3 rounded-xl border border-white/10 bg-white/10 p-4 backdrop-blur">
                         <Textarea
@@ -456,9 +470,20 @@ const Profile = () => {
                         </div>
                       </div>
                     ) : (
-                      <p className="text-sm leading-relaxed text-slate-100/80 line-clamp-3 md:line-clamp-none">
-                        {profileBio}
-                      </p>
+                      <div className="w-full space-y-2">
+                        <p className={cn("text-sm leading-relaxed text-slate-100/80", bioExpanded ? "" : "line-clamp-3")}>
+                          {profileBio}
+                        </p>
+                        {profile.bio && profile.bio.length > 180 ? (
+                          <button
+                            type="button"
+                            className="text-xs font-semibold text-white/90 underline underline-offset-2"
+                            onClick={() => setBioExpanded((prev) => !prev)}
+                          >
+                            {bioExpanded ? "Show less" : "Show more"}
+                          </button>
+                        ) : null}
+                      </div>
                     )}
                   </div>
                 </div>
@@ -466,7 +491,7 @@ const Profile = () => {
                 <div className="flex w-full flex-wrap justify-center gap-3 md:justify-start md:gap-4">
                   {isOwnProfile && (
                     <Button
-                      className="h-10 rounded-full bg-sky-500 px-6 text-sm font-semibold text-white hover:bg-sky-600"
+                      className="h-11 rounded-full bg-sky-500 px-6 text-sm font-semibold text-white shadow-lg shadow-sky-500/30 hover:bg-sky-600"
                       onClick={() => navigate("/add-catch")}
                     >
                       Add catch
@@ -480,7 +505,7 @@ const Profile = () => {
                         className="h-10 rounded-full border-white/40 bg-white/10 px-5 text-sm text-white hover:bg-white/20"
                         onClick={() => setIsEditing(true)}
                       >
-                        Status
+                        Edit profile
                       </Button>
                       <Button
                         variant="outline"
@@ -555,7 +580,7 @@ const Profile = () => {
               {statsCards.map((card) => (
                 <div
                   key={card.label}
-                  className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
+                  className="rounded-xl border border-slate-200 bg-white/80 p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
                 >
                   <div className="flex items-center gap-3">
                     <div className={statIconClasses}>{card.icon}</div>
@@ -563,7 +588,7 @@ const Profile = () => {
                       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                         {card.label}
                       </p>
-                      <p className="text-2xl font-bold text-slate-900">{card.value}</p>
+                      <p className="text-3xl font-bold text-slate-900 leading-tight">{card.value}</p>
                     </div>
                   </div>
                   {card.hint && (

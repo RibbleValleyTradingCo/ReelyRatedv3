@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here.
 All colors MUST be HSL.
 */
 
@@ -49,6 +49,8 @@ All colors MUST be HSL.
     --space-lg: 2rem;
     --space-xl: 3rem;
     --space-2xl: 4rem;
+
+    --nav-height: 4rem;
   }
 
   .dark {
@@ -84,9 +86,7 @@ All colors MUST be HSL.
     --gradient-subtle: linear-gradient(180deg, hsl(210 50% 8%), hsl(210 50% 12%));
     --shadow-ocean: 0 10px 40px -10px hsl(210 95% 55% / 0.4);
   }
-}
 
-@layer base {
   * {
     @apply border-border;
   }
@@ -97,9 +97,18 @@ All colors MUST be HSL.
   }
 
   @media (min-width: 768px) {
+    :root {
+      --nav-height: 4.5rem;
+    }
+
     body {
       padding-top: 4.5rem;
     }
+  }
+
+  html,
+  body {
+    scroll-padding-top: var(--nav-height);
   }
 }
 

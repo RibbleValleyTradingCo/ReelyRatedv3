@@ -27,8 +27,6 @@ export const PrivacySection = ({
 }: PrivacySectionProps) => {
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold">Tags & Privacy</h3>
-
       <div className="space-y-2">
         <Label htmlFor="tags">Tags (comma-separated)</Label>
         <Input
@@ -60,7 +58,7 @@ export const PrivacySection = ({
       <div className="flex items-center justify-between">
         <div className="space-y-0.5">
           <Label htmlFor="hideExactSpot">Hide exact peg/swim</Label>
-          <p className="text-sm text-muted-foreground">Keep your fishing spot private</p>
+          <p className="text-sm text-muted-foreground">We’ll still show the venue name.</p>
         </div>
         <Switch
           id="hideExactSpot"
@@ -72,7 +70,7 @@ export const PrivacySection = ({
       <div className="flex items-center justify-between">
         <div className="space-y-0.5">
           <Label htmlFor="allowRatings">Allow community ratings</Label>
-          <p className="text-sm text-muted-foreground">Let others rate your catch</p>
+          <p className="text-sm text-muted-foreground">Turn this off if you don’t want ratings on this catch.</p>
         </div>
         <Switch
           id="allowRatings"

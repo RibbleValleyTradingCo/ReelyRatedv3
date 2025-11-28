@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 
@@ -134,6 +134,7 @@ const formatRelative = (value: string | null | undefined) => {
 const AdminReports = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const { isAdmin, loading: adminLoading } = useAdminAuth();
 
   const [reports, setReports] = useState<ReportRow[]>([]);
@@ -148,6 +149,8 @@ const AdminReports = () => {
   const [selectedReport, setSelectedReport] = useState<ReportRow | null>(null);
   const [details, setDetails] = useState<ReportDetails | null>(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
+  const [filteredUserId, setFilteredUserId] = useState<string | null>(null);
+  const [filteredUsername, setFilteredUsername] = useState<string | null>(null);
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showWarnDialog, setShowWarnDialog] = useState(false);
@@ -163,13 +166,19 @@ const AdminReports = () => {
         setIsLoading(true);
       }
 
-      const { data, error } = await supabase
+      let query = supabase
         .from("reports")
         .select(
           "id, target_type, target_id, reason, status, created_at, reporter:reporter_id (id, username, avatar_path, avatar_url)"
         )
         .order("created_at", { ascending: sortOrder === "oldest" ? true : false })
         .range(0, pageSize * page - 1);
+
+      if (filteredUserId) {
+        query = query.eq("target_id", filteredUserId);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         toast.error("Unable to load reports");
@@ -179,14 +188,45 @@ const AdminReports = () => {
 
       setIsLoading(false);
     },
-    [user, isAdmin]
+    [user, isAdmin, sortOrder, pageSize, page, filteredUserId]
   );
+
+  useEffect(() => {
+    const state = (location.state as { filterUserId?: string; filterUsername?: string } | null) ?? null;
+    const stateUserId = state?.filterUserId ?? null;
+    const stateUsername = state?.filterUsername ?? null;
+    const queryUserId = new URLSearchParams(location.search).get("userId");
+    const nextFilter = stateUserId ?? queryUserId ?? null;
+    setFilteredUserId(nextFilter);
+    setFilteredUsername(stateUsername ?? null);
+    setPage(1);
+  }, [location]);
 
   useEffect(() => {
     if (isAdmin) {
       void fetchReports();
     }
   }, [fetchReports, isAdmin]);
+
+  useEffect(() => {
+    const resolveUsername = async () => {
+      if (!isAdmin || !filteredUserId) {
+        setFilteredUsername(null);
+        return;
+      }
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, username")
+        .eq("id", filteredUserId)
+        .maybeSingle();
+      if (error || !data) {
+        setFilteredUsername(null);
+        return;
+      }
+      setFilteredUsername(data.username ?? null);
+    };
+    void resolveUsername();
+  }, [filteredUserId, isAdmin, user]);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -749,6 +789,26 @@ const AdminReports = () => {
                 ))}
               </div>
             </div>
+            {filteredUserId ? (
+              <div className="flex items-center gap-2 rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">
+                <span>
+                  {filteredUsername ? `Reports about @${filteredUsername}` : "Reports about this user"}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-xs"
+                  onClick={() => {
+                    setFilteredUserId(null);
+                    setFilteredUsername(null);
+                    navigate("/admin/reports", { replace: true });
+                    setPage(1);
+                  }}
+                >
+                  Clear
+                </Button>
+              </div>
+            ) : null}
           </CardContent>
         </Card>
 
@@ -760,7 +820,11 @@ const AdminReports = () => {
             {isLoading ? (
               <p className="text-sm text-muted-foreground">Loading reports…</p>
             ) : filteredReports.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No reports match these filters.</p>
+              <p className="text-sm text-muted-foreground">
+                {filteredUserId
+                  ? `No reports about ${filteredUsername ? `@${filteredUsername}` : "this user"} match these filters.`
+                  : "No reports match these filters."}
+              </p>
             ) : (
               filteredReports.map((report) => {
                 const isSelected = selectedReport?.id === report.id;

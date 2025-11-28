@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import "./LeaderboardSection.css";
 
 import { Leaderboard } from "@/components/Leaderboard";
+import { PulsingDot } from "@/components/PulsingDot";
 import { Button } from "@/components/ui/button";
 
 interface LeaderboardSectionProps {
@@ -15,7 +16,7 @@ const LeaderboardSectionComponent = ({ limit = 10 }: LeaderboardSectionProps) =>
     <div className="leaderboard-section__container">
       <header className="leaderboard-section__header">
         <span className="leaderboard-section__badge">
-          <span className="leaderboard-section__badge-dot" aria-hidden="true" />
+          <PulsingDot className="h-2.5 w-2.5" />
           Live Rankings
         </span>
         <h2>Angler Leaderboard</h2>
@@ -28,7 +29,7 @@ const LeaderboardSectionComponent = ({ limit = 10 }: LeaderboardSectionProps) =>
       <Leaderboard limit={limit} />
 
       <div className="leaderboard-section__footer">
-        <Button variant="ocean" asChild>
+        <Button variant="ocean" size="lg" className="w-full sm:w-auto rounded-2xl px-6 py-3 font-semibold" asChild>
           <Link to="/leaderboard">View Full Leaderboard →</Link>
         </Button>
       </div>

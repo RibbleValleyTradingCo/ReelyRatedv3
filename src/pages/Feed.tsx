@@ -314,7 +314,27 @@ const Feed = () => {
     <div className="min-h-screen bg-gradient-to-b from-background to-muted" data-testid="feed-root">
       <Navbar />
       <div className="container mx-auto px-4 py-8">
-        <h1 className="text-4xl font-bold mb-8 text-center">Community Catches</h1>
+        <div
+          className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between md:gap-6 mb-6"
+          style={{ scrollMarginTop: "var(--nav-height)" }}
+        >
+          <div className="space-y-2 text-left">
+            <h1 className="text-4xl font-bold text-gray-900">Community Catches</h1>
+            <p className="text-base text-gray-600 max-w-2xl">
+              See what anglers across the community are catching right now. Filter by venue, species or rating.
+            </p>
+          </div>
+          <div className="w-full md:w-auto">
+            <Button
+              variant="ocean"
+              size="lg"
+              className="w-full md:w-auto rounded-2xl px-6 py-3 font-semibold shadow-[0_12px_28px_-18px_rgba(14,165,233,0.5)]"
+              onClick={() => navigate("/add-catch")}
+            >
+              Log a catch
+            </Button>
+          </div>
+        </div>
 
         <FeedFilters
           feedScope={feedScope}
@@ -328,7 +348,7 @@ const Feed = () => {
           userDisabled={!user}
         />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 sm:gap-7">
           {filteredCatches.map((catchItem) => (
             <CatchCard key={catchItem.id} catchItem={catchItem} userId={user?.id} />
           ))}

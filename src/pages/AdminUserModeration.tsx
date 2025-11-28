@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
@@ -10,6 +10,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { resolveAvatarUrl } from "@/lib/storage";
 import { getProfilePath } from "@/lib/profile";
 
@@ -54,68 +65,79 @@ const AdminUserModeration = () => {
   const [warnings, setWarnings] = useState<WarningRow[]>([]);
   const [logRows, setLogRows] = useState<ModerationLogRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [showWarnDialog, setShowWarnDialog] = useState(false);
+  const [showSuspendDialog, setShowSuspendDialog] = useState(false);
+  const [showBanDialog, setShowBanDialog] = useState(false);
+  const [showLiftDialog, setShowLiftDialog] = useState(false);
+  const [warnReason, setWarnReason] = useState("");
+  const [suspendReason, setSuspendReason] = useState("");
+  const [suspendDuration, setSuspendDuration] = useState("24");
+  const [banReason, setBanReason] = useState("");
+  const [liftReason, setLiftReason] = useState("");
+  const [actionLoading, setActionLoading] = useState(false);
+
+  const fetchData = useCallback(async () => {
+    if (!user || !isAdmin || !userId) return;
+    setIsLoading(true);
+
+    const [profileResp, warningsResp, logResp] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select("username, warn_count, moderation_status, suspension_until, avatar_path, avatar_url")
+        .eq("id", userId)
+        .maybeSingle(),
+      supabase
+        .from("user_warnings")
+        .select("id, reason, severity, duration_hours, created_at, admin:issued_by (id, username)")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(20),
+      supabase
+        .from("moderation_log")
+        .select("id, action, target_type, target_id, metadata, created_at, admin:admin_id (id, username)")
+        .or(`user_id.eq.${userId},target_id.eq.${userId}`)
+        .order("created_at", { ascending: false })
+        .limit(20),
+    ]);
+
+    if (profileResp.error) {
+      toast.error("Unable to load user moderation status");
+    }
+    if (warningsResp.error) {
+      toast.error("Unable to load warnings");
+    }
+    if (logResp.error) {
+      toast.error("Unable to load moderation history");
+    }
+
+    if (profileResp.data) {
+      setProfileStatus({
+        username: profileResp.data.username,
+        warn_count: profileResp.data.warn_count ?? 0,
+        moderation_status: profileResp.data.moderation_status ?? "active",
+        suspension_until: profileResp.data.suspension_until ?? null,
+        avatar_path: profileResp.data.avatar_path ?? null,
+        avatar_url: profileResp.data.avatar_url ?? null,
+      });
+    } else {
+      setProfileStatus(null);
+    }
+
+    setWarnings((warningsResp.data as WarningRow[]) ?? []);
+
+    const mappedLog = ((logResp.data as ModerationLogRow[]) ?? []).map((row) => {
+      const metadata = row.metadata ?? {};
+      const reason = typeof metadata["reason"] === "string" ? (metadata["reason"] as string) : "No reason provided";
+      return { ...row, reason } satisfies ModerationLogRow;
+    });
+    setLogRows(mappedLog);
+
+    setIsLoading(false);
+  }, [isAdmin, user, userId]);
 
   useEffect(() => {
-    const fetchData = async () => {
-      if (!user || !isAdmin || !userId) return;
-      setIsLoading(true);
-
-      const [profileResp, warningsResp, logResp] = await Promise.all([
-        supabase
-          .from("profiles")
-          .select("username, warn_count, moderation_status, suspension_until, avatar_path, avatar_url")
-          .eq("id", userId)
-          .maybeSingle(),
-        supabase
-          .from("user_warnings")
-          .select("id, reason, severity, duration_hours, created_at, admin:issued_by (id, username)")
-          .eq("user_id", userId)
-          .order("created_at", { ascending: false }),
-        supabase
-          .from("moderation_log")
-          .select("id, action, target_type, target_id, metadata, created_at, admin:admin_id (id, username)")
-          .or(`user_id.eq.${userId},target_id.eq.${userId}`)
-          .order("created_at", { ascending: false })
-          .limit(100),
-      ]);
-
-      if (profileResp.error) {
-        toast.error("Unable to load user moderation status");
-      }
-      if (warningsResp.error) {
-        toast.error("Unable to load warnings");
-      }
-      if (logResp.error) {
-        toast.error("Unable to load moderation history");
-      }
-
-      if (profileResp.data) {
-        setProfileStatus({
-          username: profileResp.data.username,
-          warn_count: profileResp.data.warn_count ?? 0,
-          moderation_status: profileResp.data.moderation_status ?? "active",
-          suspension_until: profileResp.data.suspension_until ?? null,
-          avatar_path: profileResp.data.avatar_path ?? null,
-          avatar_url: profileResp.data.avatar_url ?? null,
-        });
-      } else {
-        setProfileStatus(null);
-      }
-
-      setWarnings((warningsResp.data as WarningRow[]) ?? []);
-
-      const mappedLog = ((logResp.data as ModerationLogRow[]) ?? []).map((row) => {
-        const metadata = row.metadata ?? {};
-        const reason = typeof metadata["reason"] === "string" ? (metadata["reason"] as string) : "No reason provided";
-        return { ...row, reason } satisfies ModerationLogRow;
-      });
-      setLogRows(mappedLog);
-
-      setIsLoading(false);
-    };
-
     void fetchData();
-  }, [isAdmin, user, userId]);
+  }, [fetchData]);
 
   const warningsTable = useMemo(() => {
     if (warnings.length === 0) {
@@ -241,6 +263,97 @@ const AdminUserModeration = () => {
     );
   }, [logRows]);
 
+  const applyModerationAction = useCallback(
+    async (params: {
+      severity: "warning" | "temporary_suspension" | "permanent_ban";
+      reason: string;
+      durationHours?: number;
+    }) => {
+      if (!userId) {
+        toast.error("User not found");
+        return;
+      }
+      const trimmed = params.reason.trim();
+      if (!trimmed) {
+        toast.error("Please provide a reason");
+        return;
+      }
+      if (params.severity === "temporary_suspension") {
+        if (!params.durationHours || Number.isNaN(params.durationHours) || params.durationHours <= 0) {
+          toast.error("Enter a valid suspension duration in hours");
+          return;
+        }
+      }
+
+      setActionLoading(true);
+      try {
+        const payload: Record<string, unknown> = {
+          p_user_id: userId,
+          p_reason: trimmed,
+          p_severity: params.severity,
+        };
+        if (params.severity === "temporary_suspension" && params.durationHours) {
+          payload.p_duration_hours = params.durationHours;
+        }
+
+        const { error } = await supabase.rpc("admin_warn_user", payload);
+        if (error) throw error;
+
+        const successMessage =
+          params.severity === "warning"
+            ? "Warning recorded"
+            : params.severity === "temporary_suspension"
+            ? "Temporary suspension applied"
+            : "User banned";
+        toast.success(successMessage);
+        setShowWarnDialog(false);
+        setShowSuspendDialog(false);
+        setShowBanDialog(false);
+        setWarnReason("");
+        setSuspendReason("");
+        setSuspendDuration("24");
+        setBanReason("");
+        await fetchData();
+      } catch (error) {
+        console.error(error);
+        toast.error("Unable to apply moderation action");
+      } finally {
+        setActionLoading(false);
+      }
+    },
+    [fetchData, userId]
+  );
+
+  const handleLiftRestrictions = useCallback(async () => {
+    if (!userId) {
+      toast.error("User not found");
+      return;
+    }
+    const trimmed = liftReason.trim();
+    if (!trimmed) {
+      toast.error("Please provide a reason");
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      const { error } = await supabase.rpc("admin_clear_moderation_status", {
+        p_user_id: userId,
+        p_reason: trimmed,
+      });
+      if (error) throw error;
+      toast.success("Restrictions lifted");
+      setShowLiftDialog(false);
+      setLiftReason("");
+      await fetchData();
+    } catch (error) {
+      console.error(error);
+      toast.error("Unable to lift restrictions");
+    } finally {
+      setActionLoading(false);
+    }
+  }, [fetchData, liftReason, userId]);
+
   if (adminLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -268,14 +381,17 @@ const AdminUserModeration = () => {
     path: profileStatus?.avatar_path ?? null,
     legacyUrl: profileStatus?.avatar_url ?? null,
   });
+  const currentStatus = profileStatus?.moderation_status ?? "active";
+  const isSuspended = currentStatus === "suspended";
+  const isBanned = currentStatus === "banned";
+  const canApplyStandardActions = currentStatus === "active" || currentStatus === "warned";
 
   const moderationStatusLabel = (() => {
-    const status = profileStatus?.moderation_status ?? "active";
-    if (status === "suspended" && profileStatus?.suspension_until) {
+    if (currentStatus === "suspended" && profileStatus?.suspension_until) {
       return `Suspended until ${new Date(profileStatus.suspension_until).toLocaleString()}`;
     }
-    if (status === "banned") return "Banned";
-    if (status === "warned") return "Warned";
+    if (currentStatus === "banned") return "Banned";
+    if (currentStatus === "warned") return "Warned";
     return "Active";
   })();
 
@@ -288,7 +404,7 @@ const AdminUserModeration = () => {
             <p className="text-xs uppercase tracking-wide text-muted-foreground">Admin</p>
             <h1 className="text-3xl font-bold text-foreground">Moderation for {displayName}</h1>
             <p className="text-sm text-muted-foreground">
-              Read-only overview of this user&apos;s warnings and moderation history.
+              Moderation overview and actions for this user.
             </p>
           </div>
           <div className="flex gap-2">
@@ -329,27 +445,91 @@ const AdminUserModeration = () => {
                 <span>Warnings: {profileStatus?.warn_count ?? 0}/3</span>
               </div>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {profileStatus?.username || userId ? (
-                <Button variant="outline" size="sm" asChild>
-                  <Link to={getProfilePath({ username: profileStatus?.username ?? null, id: userId ?? undefined })}>
-                    View profile
-                  </Link>
-                </Button>
-              ) : null}
-              {userId ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    navigate("/admin/reports", {
-                      state: { filterUserId: userId },
-                    })
-                  }
-                >
-                  View reports about this user
-                </Button>
-              ) : null}
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-wrap gap-2">
+                {profileStatus?.username || userId ? (
+                  <Button variant="outline" size="sm" asChild>
+                    <Link to={getProfilePath({ username: profileStatus?.username ?? null, id: userId ?? undefined })}>
+                      View profile
+                    </Link>
+                  </Button>
+                ) : null}
+                {userId ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      navigate("/admin/reports", {
+                        state: { filterUserId: userId, filterUsername: profileStatus?.username ?? null },
+                      })
+                    }
+                  >
+                    View reports about this user
+                  </Button>
+                ) : null}
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Moderation actions</span>
+                <div className="flex flex-wrap gap-2">
+                  {canApplyStandardActions ? (
+                    <>
+                      <Button
+                        size="sm"
+                        onClick={() => setShowWarnDialog(true)}
+                        disabled={actionLoading || isLoading || !userId}
+                      >
+                        Warn user
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setShowSuspendDialog(true)}
+                        disabled={actionLoading || isLoading || !userId}
+                      >
+                        Temporary suspension
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => setShowBanDialog(true)}
+                        disabled={actionLoading || isLoading || !userId}
+                      >
+                        Ban user
+                      </Button>
+                    </>
+                  ) : null}
+                  {isSuspended ? (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => setShowBanDialog(true)}
+                        disabled={actionLoading || isLoading || !userId}
+                      >
+                        Escalate to ban
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setShowLiftDialog(true)}
+                        disabled={actionLoading || isLoading || !userId}
+                      >
+                        Lift restrictions
+                      </Button>
+                    </>
+                  ) : null}
+                  {isBanned ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setShowLiftDialog(true)}
+                      disabled={actionLoading || isLoading || !userId}
+                    >
+                      Lift restrictions
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -392,15 +572,173 @@ const AdminUserModeration = () => {
           <CardHeader>
             <CardTitle>Warnings</CardTitle>
           </CardHeader>
-          <CardContent>{isLoading ? <p className="text-sm text-muted-foreground">Loading…</p> : warningsTable}</CardContent>
+          <CardContent>
+            {isLoading ? (
+              <p className="text-sm text-muted-foreground">Loading…</p>
+            ) : (
+              <>
+                {warningsTable}
+                {warnings.length === 20 ? (
+                  <p className="mt-2 text-xs text-muted-foreground">Showing the 20 most recent warnings.</p>
+                ) : null}
+              </>
+            )}
+          </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
             <CardTitle>Moderation history</CardTitle>
           </CardHeader>
-          <CardContent>{isLoading ? <p className="text-sm text-muted-foreground">Loading…</p> : logTable}</CardContent>
+          <CardContent>
+            {isLoading ? (
+              <p className="text-sm text-muted-foreground">Loading…</p>
+            ) : (
+              <>
+                {logTable}
+                {logRows.length === 20 ? (
+                  <p className="mt-2 text-xs text-muted-foreground">Showing the 20 most recent moderation actions.</p>
+                ) : null}
+              </>
+            )}
+          </CardContent>
         </Card>
+
+        <Dialog open={showWarnDialog} onOpenChange={(open) => !actionLoading && setShowWarnDialog(open)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Warn user</DialogTitle>
+              <DialogDescription>Send a warning to this user with a brief reason.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              <Label htmlFor="warn-reason">Reason</Label>
+              <Textarea
+                id="warn-reason"
+                value={warnReason}
+                onChange={(event) => setWarnReason(event.target.value)}
+                rows={3}
+                placeholder="Explain why this warning is being issued"
+              />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowWarnDialog(false)} disabled={actionLoading}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() => void applyModerationAction({ severity: "warning", reason: warnReason })}
+                disabled={actionLoading}
+              >
+                Send warning
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={showSuspendDialog} onOpenChange={(open) => !actionLoading && setShowSuspendDialog(open)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Temporary suspension</DialogTitle>
+              <DialogDescription>Temporarily suspend this user for a set number of hours.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <Label htmlFor="suspend-reason">Reason</Label>
+                <Textarea
+                  id="suspend-reason"
+                  value={suspendReason}
+                  onChange={(event) => setSuspendReason(event.target.value)}
+                  rows={3}
+                  placeholder="Explain why this suspension is being applied"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="suspend-duration">Duration (hours)</Label>
+                <Input
+                  id="suspend-duration"
+                  type="number"
+                  min={1}
+                  value={suspendDuration}
+                  onChange={(event) => setSuspendDuration(event.target.value)}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowSuspendDialog(false)} disabled={actionLoading}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() =>
+                  void applyModerationAction({
+                    severity: "temporary_suspension",
+                    reason: suspendReason,
+                    durationHours: parseInt(suspendDuration, 10),
+                  })
+                }
+                disabled={actionLoading}
+              >
+                Apply suspension
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={showBanDialog} onOpenChange={(open) => !actionLoading && setShowBanDialog(open)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Ban user</DialogTitle>
+              <DialogDescription>Permanently ban this user.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              <Label htmlFor="ban-reason">Reason</Label>
+              <Textarea
+                id="ban-reason"
+                value={banReason}
+                onChange={(event) => setBanReason(event.target.value)}
+                rows={3}
+                placeholder="Explain why this ban is being applied"
+              />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowBanDialog(false)} disabled={actionLoading}>
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => void applyModerationAction({ severity: "permanent_ban", reason: banReason })}
+                disabled={actionLoading}
+              >
+                Ban user
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={showLiftDialog} onOpenChange={(open) => !actionLoading && setShowLiftDialog(open)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Lift restrictions</DialogTitle>
+              <DialogDescription>Clear the current suspension or ban and return the user to active status.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              <Label htmlFor="lift-reason">Reason</Label>
+              <Textarea
+                id="lift-reason"
+                value={liftReason}
+                onChange={(event) => setLiftReason(event.target.value)}
+                rows={3}
+                placeholder="Add a short note for the moderation log"
+              />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowLiftDialog(false)} disabled={actionLoading}>
+                Cancel
+              </Button>
+              <Button onClick={() => void handleLiftRestrictions()} disabled={actionLoading}>
+                Confirm lift
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
