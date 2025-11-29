@@ -114,6 +114,7 @@ export const Navbar = () => {
   const navLinks = useMemo(
     () => [
       { label: "Feed", href: "/feed" },
+      { label: "Venues", href: "/venues" },
       { label: "Leaderboard", href: "/leaderboard" },
       { label: "Sessions", href: "/sessions" },
       { label: "Explore", href: "/search" },

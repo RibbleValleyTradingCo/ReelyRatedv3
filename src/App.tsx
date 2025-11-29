@@ -18,6 +18,7 @@ const CatchDetail = lazy(() => import("./pages/CatchDetail"));
 const Profile = lazy(() => import("./pages/Profile"));
 const ProfileSettings = lazy(() => import("./pages/ProfileSettings"));
 const VenueDetail = lazy(() => import("./pages/VenueDetail"));
+const VenuesIndex = lazy(() => import("./pages/VenuesIndex"));
 const Sessions = lazy(() => import("./pages/Sessions"));
 const AdminReports = lazy(() => import("./pages/AdminReports"));
 const AdminAuditLog = lazy(() => import("./pages/AdminAuditLog"));
@@ -74,6 +75,7 @@ const App = () => (
                 <Route path="/admin/users/:userId/moderation" element={<AdminUserModeration />} />
                 <Route path="/search" element={<SearchPage />} />
                 <Route path="/insights" element={<Insights />} />
+                <Route path="/venues" element={<VenuesIndex />} />
                 <Route path="/venues/:slug" element={<VenueDetail />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>

@@ -14,6 +14,7 @@ import {
   FileWarning,
   ClipboardList,
   X,
+  MapPin,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getProfilePath } from "@/lib/profile";
@@ -139,6 +140,7 @@ export const MobileMenu = ({ open, onClose, user, onSignOut, onSignIn, onNavigat
 
   const primaryItems: MenuItem[] = [
     { label: "Feed", to: "/feed", icon: Home },
+    { label: "Venues", to: "/venues", icon: MapPin },
     { label: "Sessions", to: "/sessions", icon: Layers },
     { label: "Search", to: "/search", icon: SearchIcon },
   ];
