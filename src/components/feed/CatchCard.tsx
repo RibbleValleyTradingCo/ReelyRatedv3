@@ -2,11 +2,12 @@ import React, { memo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Star, MessageCircle, Fish, Heart } from "lucide-react";
+import { Star, MessageCircle, Fish, Heart, MapPin } from "lucide-react";
 import { getFreshwaterSpeciesLabel } from "@/lib/freshwater-data";
 import { shouldShowExactLocation } from "@/lib/visibility";
 import { resolveAvatarUrl } from "@/lib/storage";
 import { cn } from "@/lib/utils";
+import { Link } from "react-router-dom";
 
 type CustomFields = {
   species?: string;
@@ -29,7 +30,7 @@ interface CatchItem {
   title: string;
   image_url: string;
   user_id: string;
-  location: string;
+  location: string | null;
   species: string | null;
   weight: number | null;
   weight_unit: string | null;
@@ -44,6 +45,10 @@ interface CatchItem {
   comments: { id: string }[];
   reactions: { user_id: string }[] | null;
   conditions: CatchConditions;
+  venues?: {
+    slug: string;
+    name: string;
+  } | null;
 }
 
 interface CatchCardProps {
@@ -129,13 +134,21 @@ export const CatchCard = memo(({ catchItem, userId }: CatchCardProps) => {
             {catchItem.profiles?.username ?? "Unknown angler"}
           </span>
         </div>
-        {catchItem.location && (
+        {catchItem.venues ? (
+          <Link
+            to={`/venues/${catchItem.venues.slug}`}
+            className="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-primary"
+          >
+            <MapPin className="h-4 w-4 text-slate-400" />
+            <span className="truncate">{catchItem.venues.name}</span>
+          </Link>
+        ) : catchItem.location ? (
           <p className="text-sm text-slate-500 truncate w-full">
             {shouldShowExactLocation(catchItem.hide_exact_spot, catchItem.user_id, userId)
               ? catchItem.location
               : "Undisclosed venue"}
           </p>
-        )}
+        ) : null}
         <div className="flex items-center gap-5 w-full pt-1">
           <div className="flex items-center gap-1.5">
             <Star className="w-4 h-4 text-amber-500 fill-amber-400/90" />

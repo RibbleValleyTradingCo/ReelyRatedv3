@@ -66,6 +66,11 @@ export interface CatchData {
     venue_name_manual: string | null;
     date: string | null;
   } | null;
+  venues?: {
+    id: string;
+    slug: string;
+    name: string;
+  } | null;
 }
 
 export interface Rating {
@@ -97,7 +102,7 @@ export const useCatchData = ({ catchId, userId }: UseCatchDataParams) => {
     setIsLoading(true);
     const { data, error } = await supabase
       .from("catches")
-      .select("*, profiles:user_id (username, avatar_path, avatar_url), session:session_id (id, title, venue_name_manual, date)")
+      .select("*, profiles:user_id (username, avatar_path, avatar_url), session:session_id (id, title, venue_name_manual, date), venues:venue_id (id, slug, name)")
       .eq("id", catchId)
       .single();
 

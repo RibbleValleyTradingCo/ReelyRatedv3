@@ -188,6 +188,7 @@ const CatchDetail = () => {
     username: "Unknown angler",
     avatar_url: null,
   };
+  const venue = catchData.venues ?? null;
   const shareSpecies = formatSpecies(catchData.species_slug, customSpecies ?? catchData.custom_species);
   const shareWeight = formatWeight(catchData.weight, catchData.weight_unit);
   const shareDate = catchData.caught_at ?? catchData.created_at;
@@ -243,14 +244,19 @@ const CatchDetail = () => {
                   </div>
                 )}
                 <h1 className="text-3xl font-bold text-white mb-2">{catchData.title}</h1>
-                {canShowExactLocation && catchData.location_label ? (
+                {venue ? (
                   <Link
-                    to={`/venues/${encodeURIComponent(catchData.location_label)}`}
+                    to={`/venues/${venue.slug}`}
                     className="flex items-center gap-2 text-white/90 underline-offset-4 hover:underline"
                   >
                     <MapPin className="w-4 h-4" />
-                    <span>{catchData.location_label}</span>
+                    <span>{venue.name}</span>
                   </Link>
+                ) : canShowExactLocation && catchData.location_label ? (
+                  <div className="flex items-center gap-2 text-white/90">
+                    <MapPin className="w-4 h-4" />
+                    <span>{catchData.location_label}</span>
+                  </div>
                 ) : catchData.hide_exact_spot ? (
                   <div className="flex items-center gap-2 text-white/70">
                     <MapPin className="w-4 h-4" />

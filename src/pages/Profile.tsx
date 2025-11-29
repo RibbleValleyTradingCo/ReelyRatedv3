@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Star, Trophy, Fish, BarChart3, Loader2, Settings, Sparkles, Lock } from "lucide-react";
+import { Star, Trophy, Fish, BarChart3, Loader2, Settings, Sparkles, Lock, MapPin } from "lucide-react";
 import { getFreshwaterSpeciesLabel } from "@/lib/freshwater-data";
 import { createNotification } from "@/lib/notifications";
 import { isRateLimitError, getRateLimitMessage } from "@/lib/rateLimit";
@@ -30,6 +30,10 @@ interface Profile {
 
 interface Catch {
   id: string;
+  user_id?: string;
+  location?: string | null;
+  hide_exact_spot?: boolean | null;
+  visibility?: string | null;
   title: string;
   image_url: string;
   ratings: { rating: number }[];
@@ -37,6 +41,11 @@ interface Catch {
   weight_unit: string | null;
   species: string | null;
   created_at: string;
+  venues?: {
+    id: string;
+    slug: string;
+    name: string;
+  } | null;
 }
 
 interface FollowingProfile {
@@ -187,7 +196,9 @@ const Profile = () => {
     if (!profileId) return;
     const { data, error } = await supabase
       .from("catches")
-      .select("id, title, image_url, weight, weight_unit, species, created_at, ratings (rating)")
+      .select(
+        "id, user_id, location, hide_exact_spot, visibility, title, image_url, weight, weight_unit, species, created_at, ratings (rating), venues:venue_id (id, slug, name)"
+      )
       .eq("user_id", profileId)
       .order("created_at", { ascending: false });
 
@@ -762,6 +773,16 @@ const Profile = () => {
                         <p className="truncate text-xs text-slate-500">
                           {catchItem.species ? formatSpecies(catchItem.species) : "Species unknown"}
                         </p>
+                        {catchItem.venues ? (
+                          <Link
+                            to={`/venues/${catchItem.venues.slug}`}
+                            className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <MapPin className="h-3 w-3" />
+                            <span className="truncate">{catchItem.venues.name}</span>
+                          </Link>
+                        ) : null}
                         <div className="flex items-center justify-between text-xs text-slate-500">
                           <span>{new Date(catchItem.created_at).toLocaleDateString("en-GB")}</span>
                           <span>{formatWeight(catchItem.weight, catchItem.weight_unit)}</span>

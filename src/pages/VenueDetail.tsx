@@ -23,7 +23,7 @@ type CatchRow = {
   title: string;
   image_url: string;
   user_id: string;
-  location: string;
+  location: string | null;
   species: string | null;
   weight: number | null;
   weight_unit: string | null;
@@ -39,6 +39,11 @@ type CatchRow = {
   ratings: { rating: number }[];
   comments: { id: string }[];
   reactions: { user_id: string }[] | null;
+  venues?: {
+    id?: string;
+    slug: string;
+    name: string;
+  } | null;
 };
 
 const normalizeCatchRow = (row: CatchRow): CatchRow => ({
@@ -47,6 +52,7 @@ const normalizeCatchRow = (row: CatchRow): CatchRow => ({
   ratings: (row.ratings as any) ?? [],
   comments: (row.comments as any) ?? [],
   reactions: (row.reactions as any) ?? [],
+  venues: row.venues ?? null,
 });
 
 const VenueDetail = () => {
@@ -246,6 +252,15 @@ const VenueDetail = () => {
                               {item.species ? item.species.replace(/_/g, " ") : "Species unknown"} •{" "}
                               {item.weight ? `${item.weight}${item.weight_unit === "kg" ? "kg" : "lb"}` : "Weight n/a"}
                             </p>
+                            {item.venues ? (
+                              <Link
+                                to={`/venues/${item.venues.slug}`}
+                                className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
+                              >
+                                <MapPin className="h-3 w-3" />
+                                {item.venues.name}
+                              </Link>
+                            ) : null}
                           </div>
                         </div>
                         <div className="flex items-center gap-4 text-xs text-slate-500 sm:text-sm">

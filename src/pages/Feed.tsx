@@ -45,7 +45,7 @@ interface Catch {
   title: string;
   image_url: string;
   user_id: string;
-  location: string;
+  location: string | null;
   species: string | null;
   weight: number | null;
   weight_unit: string | null;
@@ -62,6 +62,11 @@ interface Catch {
   comments: { id: string }[];
   reactions: { user_id: string }[] | null;
   conditions: CatchConditions;
+  venues?: {
+    id?: string;
+    slug: string;
+    name: string;
+  } | null;
 }
 
 const PAGE_SIZE = 18;
@@ -111,6 +116,7 @@ const Feed = () => {
         .select(`
           *,
           profiles:user_id (username, avatar_path, avatar_url),
+          venues:venue_id (id, slug, name),
           ratings (rating),
           comments:catch_comments (id),
           reactions:catch_reactions (user_id)
@@ -275,14 +281,15 @@ const Feed = () => {
 
     setIsFetchingMore(true);
     const { data, error } = await supabase
-      .from("catches")
-      .select(`
-        *,
-        profiles:user_id (username, avatar_path, avatar_url),
-        ratings (rating),
-        comments:catch_comments (id),
-        reactions:catch_reactions (user_id)
-      `)
+        .from("catches")
+        .select(`
+          *,
+          profiles:user_id (username, avatar_path, avatar_url),
+          ratings (rating),
+          comments:catch_comments (id),
+          reactions:catch_reactions (user_id),
+          venues:venue_id (id, slug, name)
+        `)
       .is("deleted_at", null)
       .is("comments.deleted_at", null)
       .order("created_at", { ascending: false })

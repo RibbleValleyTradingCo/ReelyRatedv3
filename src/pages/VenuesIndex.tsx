@@ -85,10 +85,10 @@ const VenuesIndex = () => {
     <div className="min-h-screen bg-gradient-to-b from-background to-muted">
       <Navbar />
       <main className="section-container py-10 md:py-14">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="space-y-2">
             <p className="text-sm font-semibold uppercase tracking-wide text-primary">Venues</p>
-            <h1 className="text-3xl font-bold text-slate-900 md:text-4xl">Browse venues</h1>
+            <h1 className="text-3xl font-bold leading-tight text-slate-900 md:text-4xl">Browse venues</h1>
             <p className="text-sm text-slate-600">
               Discover fisheries and see what the community is catching there.
             </p>
@@ -98,6 +98,7 @@ const VenuesIndex = () => {
               placeholder="Search venues by name or location"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
+              className="h-11 rounded-xl"
             />
           </div>
         </div>
@@ -112,26 +113,28 @@ const VenuesIndex = () => {
             No venues found. Try a different search.
           </div>
         ) : (
-          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {venues.map((venue) => (
-              <Card key={venue.id} className="flex h-full flex-col border border-slate-200 bg-white shadow-sm">
+              <Card
+                key={venue.id}
+                className="flex h-full flex-col border border-slate-200 bg-white shadow-sm transition hover:shadow-md focus-within:shadow-md"
+              >
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-lg text-slate-900">{venue.name}</CardTitle>
-                  {venue.location ? (
-                    <p className="flex items-center gap-2 text-sm text-slate-600">
-                      <MapPin className="h-4 w-4 text-slate-500" />
-                      {venue.location}
-                    </p>
-                  ) : null}
+                  <CardTitle className="text-xl font-semibold text-slate-900">{venue.name}</CardTitle>
+                  <p className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-slate-500">
+                    <MapPin className="h-4 w-4 text-slate-400" />
+                    {venue.location || "UK stillwater venue"}
+                  </p>
+                  <p className="text-xs text-slate-500">Community catches coming soon</p>
                 </CardHeader>
-                <CardContent className="flex flex-1 flex-col gap-4 pb-5">
+                <CardContent className="flex flex-1 flex-col gap-3 pb-5">
                   {venue.description ? (
                     <p className="text-sm text-slate-600 line-clamp-3">{venue.description}</p>
                   ) : (
                     <p className="text-sm text-slate-500">No description provided.</p>
                   )}
                   <div className="mt-auto">
-                    <Button asChild className="w-full">
+                    <Button asChild className="w-full rounded-full">
                       <Link to={`/venues/${venue.slug}`}>View venue</Link>
                     </Button>
                   </div>
@@ -142,8 +145,13 @@ const VenuesIndex = () => {
         )}
 
         {venues.length > 0 && hasMore ? (
-          <div className="mt-10 flex justify-center">
-            <Button variant="outline" onClick={handleLoadMore} disabled={loadingMore}>
+          <div className="mt-12 flex justify-center">
+            <Button
+              variant="outline"
+              onClick={handleLoadMore}
+              disabled={loadingMore}
+              className="h-11 rounded-full px-6"
+            >
               {loadingMore ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
