@@ -3,6 +3,30 @@
 
 SET search_path = public, extensions;
 
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE p.proname = 'get_venue_recent_catches'
+      AND n.nspname = 'public'
+  ) THEN
+    DROP FUNCTION public.get_venue_recent_catches(uuid, int, int);
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE p.proname = 'get_venue_top_catches'
+      AND n.nspname = 'public'
+  ) THEN
+    DROP FUNCTION public.get_venue_top_catches(uuid, int);
+  END IF;
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION public.get_venue_recent_catches(
   p_venue_id uuid,
   p_limit int DEFAULT 20,
