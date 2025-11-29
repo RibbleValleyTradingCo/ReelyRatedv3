@@ -4,6 +4,7 @@ import { Navbar } from "@/components/Navbar";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Loader2, MapPin } from "lucide-react";
 import { CatchCard } from "@/components/feed/CatchCard";
 
@@ -40,6 +41,14 @@ type CatchRow = {
   reactions: { user_id: string }[] | null;
 };
 
+const normalizeCatchRow = (row: CatchRow): CatchRow => ({
+  ...row,
+  profiles: row.profiles ?? { username: "Unknown", avatar_path: null, avatar_url: null },
+  ratings: (row.ratings as any) ?? [],
+  comments: (row.comments as any) ?? [],
+  reactions: (row.reactions as any) ?? [],
+});
+
 const VenueDetail = () => {
   const { slug } = useParams<{ slug: string }>();
   const [venue, setVenue] = useState<Venue | null>(null);
@@ -50,14 +59,6 @@ const VenueDetail = () => {
   const [topLoading, setTopLoading] = useState(false);
   const [recentOffset, setRecentOffset] = useState(0);
   const [recentHasMore, setRecentHasMore] = useState(true);
-
-  const normalizeCatchRow = (row: CatchRow): CatchRow => ({
-    ...row,
-    profiles: row.profiles ?? { username: "Unknown", avatar_path: null, avatar_url: null },
-    ratings: (row.ratings as any) ?? [],
-    comments: (row.comments as any) ?? [],
-    reactions: (row.reactions as any) ?? [],
-  });
 
   useEffect(() => {
     const loadVenue = async () => {
@@ -117,14 +118,6 @@ const VenueDetail = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [venue?.id]);
 
-  const normalizeCatchRow = (row: CatchRow): CatchRow => ({
-    ...row,
-    profiles: row.profiles ?? { username: "Unknown", avatar_path: null, avatar_url: null },
-    ratings: (row.ratings as any) ?? [],
-    comments: (row.comments as any) ?? [],
-    reactions: (row.reactions as any) ?? [],
-  });
-
   const renderCatchesGrid = (items: CatchRow[]) => {
     if (items.length === 0) {
       return (
@@ -178,12 +171,12 @@ const VenueDetail = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted">
       <Navbar />
-      <main className="section-container py-10 md:py-14 space-y-10">
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <main className="section-container py-8 md:py-12 space-y-10">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
           <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="space-y-2">
+            <div className="space-y-3">
               <p className="text-sm font-semibold uppercase tracking-wide text-primary">Venue</p>
-              <h1 className="text-3xl font-bold text-slate-900 md:text-4xl">{venue.name}</h1>
+              <h1 className="text-3xl font-bold leading-tight text-slate-900 md:text-4xl">{venue.name}</h1>
               {venue.location ? (
                 <p className="flex items-center gap-2 text-sm text-slate-600">
                   <MapPin className="h-4 w-4 text-slate-500" />
@@ -196,7 +189,7 @@ const VenueDetail = () => {
                 <p className="text-sm text-slate-500">No description provided for this venue yet.</p>
               )}
             </div>
-            <Button asChild variant="outline">
+            <Button asChild variant="outline" className="rounded-full">
               <Link to="/venues">Back to venues</Link>
             </Button>
           </div>
@@ -214,8 +207,59 @@ const VenueDetail = () => {
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
               Loading top catches…
             </div>
+          ) : topCatches.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-sm text-slate-600">
+              No catches have been logged at this venue yet. Be the first to log one!
+            </div>
           ) : (
-            renderCatchesGrid(topCatches)
+            <Card className="border border-slate-200 bg-white shadow-sm">
+              <CardContent className="p-0">
+                <div className="grid gap-px overflow-hidden rounded-xl bg-slate-100 text-sm text-slate-700">
+                  {topCatches.map((item, index) => (
+                    <div
+                      key={item.id}
+                      className="grid grid-cols-[auto,1fr,auto] items-center gap-3 bg-white px-4 py-3 sm:grid-cols-[60px,1fr,auto] sm:px-6"
+                    >
+                      <div className="flex items-center justify-center rounded-full bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700">
+                        #{index + 1}
+                      </div>
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-10 w-10">
+                            <AvatarImage
+                              src={
+                                item.profiles?.avatar_path
+                                  ? undefined
+                                  : item.profiles?.avatar_url ?? undefined
+                              }
+                            />
+                            <AvatarFallback>{item.profiles?.username?.[0]?.toUpperCase() ?? "A"}</AvatarFallback>
+                          </Avatar>
+                          <div className="space-y-0.5">
+                            <Link
+                              to={`/profile/${item.profiles?.username ?? item.user_id}`}
+                              className="text-sm font-semibold text-slate-900 hover:text-primary"
+                            >
+                              {item.profiles?.username ?? "Unknown angler"}
+                            </Link>
+                            <p className="text-xs text-slate-500">
+                              {item.species ? item.species.replace(/_/g, " ") : "Species unknown"} •{" "}
+                              {item.weight ? `${item.weight}${item.weight_unit === "kg" ? "kg" : "lb"}` : "Weight n/a"}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4 text-xs text-slate-500 sm:text-sm">
+                          <span>{new Date(item.created_at).toLocaleDateString()}</span>
+                          <Button asChild size="sm" className="h-9 rounded-full px-4">
+                            <Link to={`/catch/${item.id}`}>View catch</Link>
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
           )}
         </section>
 
@@ -229,7 +273,12 @@ const VenueDetail = () => {
           {renderCatchesGrid(recentCatches)}
           {recentHasMore ? (
             <div className="flex justify-center">
-              <Button variant="outline" onClick={() => venue && void loadRecentCatches(venue.id, recentOffset, true)} disabled={recentLoading}>
+              <Button
+                variant="outline"
+                onClick={() => venue && void loadRecentCatches(venue.id, recentOffset, true)}
+                disabled={recentLoading}
+                className="h-11 rounded-full px-6"
+              >
                 {recentLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />

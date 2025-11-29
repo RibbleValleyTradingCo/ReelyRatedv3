@@ -21,6 +21,7 @@ import { PrivacySection } from "@/components/catch-form/PrivacySection";
 import { logger } from "@/lib/logger";
 import { mapModerationError } from "@/lib/moderation-errors";
 import { cn } from "@/lib/utils";
+import { UK_FISHERIES } from "@/lib/freshwater-data";
 
 const capitalizeFirstWord = (value: string) => {
   if (!value) return "";
@@ -475,6 +476,17 @@ const AddCatch = () => {
     }
 
     const normalizedLocation = normalizeVenueName(finalLocation);
+    const isKnownFishery = normalizedLocation ? UK_FISHERIES.includes(normalizedLocation) : false;
+    let venueId: string | null = null;
+
+    if (isKnownFishery) {
+      const { data: venueRow } = await supabase
+        .from("venues")
+        .select("id")
+        .eq("name", normalizedLocation)
+        .maybeSingle();
+      venueId = venueRow?.id ?? null;
+    }
 
     setIsSubmitting(true);
 
@@ -623,6 +635,7 @@ const AddCatch = () => {
         hide_exact_spot: formData.hideExactSpot,
         allow_ratings: formData.allowRatings,
         session_id: sessionId,
+        venue_id: venueId,
       };
 
       const { error: insertError } = await supabase.from("catches").insert(catchData);
