@@ -1,304 +1,125 @@
 ReelyRated Frontend Map (Pages, Hooks, Components)
 
-This document is a quick reference for how the frontend is structured and how it talks to Supabase.
-Use it when working with AI tools (Codex / ChatGPT / Claude) so they have context without needing the full repo.
+Quick reference for how the frontend is structured and how it talks to Supabase. Use it when working with AI tools so they have context without scanning the full repo. Lenses: consumer experience (feed/catches), profiles, venues, admin, and cross-cutting safety (privacy, blocks, deletion).
 
 ⸻
 
-1. Pages
-
-src/pages/Index.tsx – Homepage
-
-Route: /
-Purpose: Landing page, “at a glance” stats and featured content.
-
-Key features:
-• Hero card with a highlighted catch (uses leaderboard data).
-• “Active anglers” count:
-• Counts rows in public.profiles.
-• Must work for both anon and authenticated roles.
-• Mini leaderboard:
-• Top N entries from leaderboard_scores_detailed view.
-• Shows species, weight, angler, etc.
-• CTA buttons:
-• Links to feed, leaderboard, sign-in/up, etc.
-
-Supabase usage (high level):
-• profiles (count only, via SELECT with { count: "exact", head: true }).
-• leaderboard_scores_detailed for the hero + mini leaderboard.
+1. Overview
+- Purpose: high-level map of routes, key UI states, and the RPCs/views they rely on.
+- Core areas: homepage/feed/catches, profiles (public + settings), venues (public + admin), admin tools, safety/identity (privacy, blocks, deletion), and notification plumbing.
 
 ⸻
 
-src/pages/Profile.tsx – Public Profile
+2. Pages
 
-Route: /profile/:idOrUsername
-Purpose: Public-facing profile page for an angler.
+src/pages/Index.tsx – Homepage  
+Route: /  
+Purpose: Landing page with “at a glance” stats and featured content.  
+Key features: hero with highlighted catch (leaderboard data), “Active anglers” count, mini leaderboard, CTAs to feed/leaderboard/auth.  
+Supabase: profiles (count with head/exact), leaderboard_scores_detailed (hero + mini leaderboard).
 
-Key features:
-• Displays username, avatar, bio.
-• Follow / unfollow button.
-• Follower and following counts.
-• Grid/list of recent catches by this user (with rating summaries).
-• Links through to catch detail pages.
+src/pages/Profile.tsx – Public profile (container)  
+Route: /profile/:idOrUsername  
+Purpose: Public-facing profile; now a container composing presentational components (ProfileHero, ProfileCatchesGrid, ProfileAnglerStatsSection, ProfileFollowingStrip, ProfileDeletedStub, ProfileBlockedViewerStub, ProfileAboutStaffCard, ProfileAdminModerationTools).  
+States: normal angler (stats/catches/following), private profile (follower vs non-follower gating), deleted stub, blocked-viewer stub (owner blocked viewer), admin profile (public view vs admin self: staff badge, about-staff card, no social CTAs), admin self moderation home.  
+Supabase: profiles, catches, profile_follows, profile_blocks, follower counts, admin check (admin_users), block RPCs (block_profile/unblock_profile), follow RPC (follow_profile_with_rate_limit), views/RPCs used by the container to load stats/following and enforce block/priv flags.
 
-Supabase usage:
-• profiles
-• select("id, username, avatar_path, avatar_url, bio") by id or username.
-• catches
-• select("id, title, image_url, weight, weight_unit, species, created_at, ratings (rating)") filtered by user_id.
-• profile_follows
-• Count followers.
-• List followed profiles (join back to profiles).
-• Insert/delete for follow/unfollow.
+src/pages/ProfileSettings.tsx – Account / profile settings  
+Route: /settings/profile  
+Purpose: Manage own profile/auth. Includes privacy toggle (profiles.is_private) and account deletion flow.  
+Key features: edit username/full name/avatar/bio; update email/password via supabase.auth; privacy toggle; account deletion request calls request_account_deletion(p_reason), signs out, redirects to /account-deleted.  
+Supabase: profiles select/update, supabase.auth getUser/updateUser/signOut, request_account_deletion RPC.
 
-⸻
+src/pages/AccountDeleted.tsx – Account deletion confirmation  
+Route: /account-deleted  
+Purpose: Confirmation page after deletion request; simple CTAs. No Supabase calls (RPC already ran).
 
-src/pages/ProfileSettings.tsx – Account / Profile Settings
+src/pages/AddCatch.tsx – Add catch form  
+Route: /catch/new  
+Purpose: Log a catch (sessions, metadata, storage upload).  
+Supabase: tags (methods), baits, water_types, sessions (select/insert), storage (catches bucket), catches.insert with full metadata (location/species/weights/conditions/visibility/etc.).
 
-Route: /settings/profile
-Purpose: Manage own profile + auth details.
+src/pages/Feed.tsx – Global feed  
+Route: /feed  
+Purpose: Recent catches list; optional “following” filter.  
+Supabase: catches with profiles, ratings, catch_comments (ids), catch_reactions; filter deleted_at IS NULL; profile_follows for “following” scope; includes venue_id fields where present.
 
-Key features:
-• Edit username, full name, avatar, bio.
-• Update email/password (through Supabase Auth).
-• Sign out.
+src/pages/LeaderboardPage.tsx – Top 100 leaderboard  
+Route: /leaderboard  
+Purpose: Full leaderboard using leaderboard_scores_detailed (already filtered for visibility/deletes).  
+Supabase: leaderboard_scores_detailed (rank/species/weight/normalised fields/score/avg_rating/etc.).
 
-Supabase usage:
-• profiles
-• select("username, full_name, avatar_path, avatar_url, bio") for current user.
-• update({ username, full_name, avatar_path, bio, updated_at }) by id = user.id.
-• supabase.auth
-• getUser, updateUser({ email }), signInWithPassword, signOut.
+src/pages/Sessions.tsx – Sessions list  
+Route: /sessions  
+Purpose: Manage user sessions.  
+Supabase: sessions select (title/venue/date/notes/created_at, catches count) filtered by user_id.
 
-⸻
+src/pages/Insights.tsx – Angler insights  
+Route: /insights  
+Purpose: Personal stats/analytics.  
+Supabase: catches (created_at, caught_at, weight, location, bait, method, time_of_day, conditions, session_id, species, normalised fields), sessions (title/venue/date/created_at by user).
 
-src/pages/AddCatch.tsx – Add Catch Form
+src/pages/VenuesIndex.tsx – Venues directory  
+Route: /venues  
+Purpose: Venue discovery (cards aimed at conversion/bookability).  
+Key features: search + pagination; cards show venue name/location/tagline; stats from venue_stats (total/recent catches); chips from metadata (best_for_tags, facilities); optional “From {price_from}” plus “View venue”.  
+Supabase: get_venues RPC (SECURITY INVOKER; returns venues + venue_stats data; uses standard RLS for catches in the stats view).
 
-Route: /catch/new
-Purpose: Main form for logging a catch.
+src/pages/VenueDetail.tsx – Venue detail  
+Route: /venues/:slug  
+Purpose: Main venue page (hero + leaderboards + events).  
+Key features: hero with name/location/tagline/description, map link, snapshot stats (total/recent catches, PB, top species); “Top anglers at this venue”; “Top catches” leaderboard; “Recent activity” catches grid; “Events & announcements” with Upcoming (published) and Past (published, paginated) tabs; admin-only “Edit venue” link to /admin/venues/:slug.  
+Supabase: get_venue_by_slug, get_venue_recent_catches, get_venue_top_catches, get_venue_top_anglers, get_venue_upcoming_events, get_venue_past_events (all RLS-aware for privacy/blocks/deletion).
 
-Key features:
-• Choose or create a session (with date/venue).
-• Upload images to storage (catches bucket).
-• Select bait, method, water type from lookup tables.
-• Set metadata: title, species, weight/length, conditions, time of day, visibility, etc.
-• Submit to public.catches.
+src/pages/AdminVenuesList.tsx – Admin venues list  
+Route: /admin/venues (admin-only)  
+Purpose: Admin list/search of venues; jump to edit/public page; shows stats summary.  
+Supabase: get_venues RPC; admin gating via admin_users check in UI.
 
-Supabase usage:
-• Lookups:
-• tags – category = 'method' (methods).
-• baits.
-• water_types.
-• Sessions:
-• sessions.select("id, title, venue, date").eq("user_id", user.id).
-• Optional sessions.insert(...) for quick session creation.
-• Storage:
-• supabase.storage.from("catches").upload(...).
-• Catches:
-• catches.insert({...}) with fields including:
-• Basic: user_id, image_url, title, description, location.
-• Normalised: location_label, species_slug, custom_species, water_type_code, method_tag.
-• Numbers: weight, weight_unit, length, length_unit.
-• Other: peg_or_swim, caught_at, time_of_day, conditions (JSONB), tags[], gallery_photos[], video_url, visibility, hide_exact_spot, allow_ratings, session_id.
-
-⸻
-
-src/pages/Feed.tsx – Global Feed
-
-Route: /feed
-Purpose: Scrollable list of catches across the community.
-
-Key features:
-• Lists recent catches ordered by created_at.
-• Shows owner info, basic stats, reactions and comment count.
-• Can filter/scope by “following” using profile_follows.
-
-Supabase usage:
-• catches
-• select("\*, profiles:user_id (...), ratings (rating), comments:catch_comments (id), reactions:catch_reactions (user_id)")
-• Filter: deleted_at IS NULL.
-• profile_follows
-• Get list of following_id to build “following” filter.
+src/pages/AdminVenueEdit.tsx – Admin venue edit  
+Route: /admin/venues/:slug (admin-only)  
+Purpose: Manage venue metadata and events.  
+Key features: edit metadata (tagline, ticket_type, price_from, tags/facilities, URLs, contact, internal notes); manage events (create/update/delete, publish/unpublish) with status (draft/upcoming/past); link to public page.  
+Supabase: get_venue_by_slug, admin_update_venue_metadata, admin_get_venue_events, admin_create_venue_event, admin_update_venue_event, admin_delete_venue_event.
 
 ⸻
 
-src/pages/LeaderboardPage.tsx – Top 100 Leaderboard
+3. Hooks
 
-Route: /leaderboard
-Purpose: Full leaderboard view (Top 100).
+src/hooks/useLeaderboardRealtime.ts  
+Purpose: Shared leaderboard source (homepage + Top 100 + hero).  
+Behaviour: queries leaderboard_scores_detailed; optional species filter; orders by score/created_at/id; subscribes to realtime changes on catches.
 
-Key features:
-• Uses leaderboard_scores_detailed view.
-• Shows rank, angler, species, weight, location, method, rating stats.
-• Species/location/method columns use the view’s normalised fallback columns:
-• Species: species_slug → species → “Unknown”.
-• Location: location_label.
-• Method: method_tag → method → “—”.
+src/hooks/useNotifications.ts  
+Purpose: Notifications list + actions.  
+Behaviour: loads notifications by user_id, mark read/all, clear all, realtime subscription.
 
-Supabase usage:
-• leaderboard_scores_detailed
-• View already filters visibility = 'public' and deleted_at IS NULL.
-• Exposes:
-• id, user_id, owner_username, title
-• species_slug, species, weight, weight_unit
-• length, length_unit
-• total_score, avg_rating, rating_count
-• created_at
-• location_label, location
-• method_tag, method
-• water_type_code
-• description, gallery_photos, tags, video_url, conditions, caught_at.
+src/hooks/useCatchData.ts / src/hooks/useCatchInteractions.ts  
+Purpose: Catch detail data + interactions.  
+Behaviour: fetch catch with profile/session/ratings/comments/reactions; delete catch; follow/unfollow owner; reactions/ratings; trigger notifications. RLS/privacy enforced by backend views/RPCs.
 
 ⸻
 
-src/pages/Sessions.tsx – Sessions List
+4. Cross-cutting behaviours (privacy, blocks, deletion, admin identity)
 
-Route: /sessions
-Purpose: Manage sessions (trips) and see basic stats per session.
-
-Key features:
-• List of user’s sessions.
-• Shows date, venue, note, and catch count per session.
-• Links to session-based filtered views (where used).
-
-Supabase usage:
-• sessions
-• select("id, title, venue, date, notes, created_at, catches:catches_session_id_fkey(count)")
-• Filtered by user_id = current user.
+- Profile privacy (profiles.is_private): enforced by RLS/views/RPCs for feed/search/venue catches; non-followers can’t see private catches; profile container handles private states; frontend should not bypass RLS.
+- Blocks (profile_blocks): RPCs block_profile/unblock_profile + helper is_blocked_either_way; enforced in RLS on catches/comments and comment-creation RPC; UI shows block button/banner on Profile and blocked-viewer stub; blockers don’t see blocked users’ content (feeds/venues/comments).
+- Account deletion: RPCs request_account_deletion (user), admin_delete_account (admin); profile fields is_deleted/deleted_at/locked_for_deletion; UI flow in /settings/profile and /account-deleted; deleted-profile stub for non-admins on Profile.
+- Admin identity & profiles: admin_users table drives admin bypass/permissions; admin-only RPCs for venues/events/deletion; admin profile UX removes social CTAs, shows staff badge and About Staff card; admin self sees moderation tools.
 
 ⸻
 
-src/pages/Insights.tsx – Angler Insights / Analytics
+5. Notification helpers / routing
 
-Route: /insights
-Purpose: User’s personal stats dashboard.
-
-Key features:
-• Catches over time (per month / period).
-• Breakdown by venue, species, bait/method, time of day.
-• Uses raw and normalised fields from catches and sessions.
-
-Supabase usage:
-• catches
-• select("id, created_at, caught_at, weight, weight_unit, location, bait_used, method, time_of_day, conditions, session_id, species")
-• Derives additional insights client-side; uses location_label, method_tag etc. when present.
-• sessions
-• select("id, title, venue, date, created_at").eq("user_id", user.id).
+src/lib/notifications-utils.ts  
+Purpose: resolveNotificationPath and formatting for notifications.  
+Behaviour: routes catch-related types to /catch/:id; follow-type to actor profile; admin/special types use extra_data where defined. Components: NotificationsBell, ProfileNotificationsSection, NotificationListItem leverage these paths. (No new notification types beyond current feed/profile/catch/admin-report patterns.)
 
 ⸻
 
-2. Hooks
+6. How to use this with AI
 
-src/hooks/useLeaderboardRealtime.ts
-
-Purpose: Shared data source for leaderboard UI (homepage + Top 100 + hero).
-
-Behaviour:
-• Queries leaderboard_scores_detailed with:
-• Full column list: IDs, names, species, raw/normalised fields, scoring fields.
-• Orders by total_score DESC, then created_at, then id.
-• Optional .eq("species_slug", selectedSpecies) filter.
-• Normalises numeric fields (total_score, avg_rating, rating_count, weight, length).
-• Subscribes to realtime changes on public.catches and refetches on insert/update/delete.
-
-⸻
-
-src/hooks/useNotifications.ts
-
-Purpose: Central hook for notifications UI and state.
-
-Behaviour:
-• Loads notifications:
-• notifications.select("\*").eq("user_id", userId).order("created_at", desc).
-• Exposes:
-• markNotificationAsRead
-• markAllNotificationsAsRead
-• clearAllNotifications
-• Subscribes to realtime changes on notifications filtered by user_id.
-• Uses RPC create_notification indirectly via helper functions (see below).
-
-⸻
-
-src/hooks/useCatchData.ts and src/hooks/useCatchInteractions.ts
-
-Purpose: Catch detail page data and interactions.
-
-Data (useCatchData):
-• catches with:
-• select("\*, profiles:user_id (...), session:session_id (id, title, venue_name_manual, date)") by id.
-• ratings, catch_reactions, profile_follows, catch_comments (with nested profile).
-
-Interactions (useCatchInteractions):
-• Delete catch (owner).
-• Follow/unfollow owner.
-• Add/remove reaction.
-• Add rating.
-• Trigger notifications via RPC.
-
-⸻
-
-3. Components
-
-src/components/Leaderboard.tsx
-
-Purpose: Homepage mini leaderboard component.
-• Renders a subset of LeaderboardEntry from useLeaderboardRealtime.
-• Displays rank, species, weight, angler, etc.
-• Uses helper functions like formatSpeciesLabel.
-
-⸻
-
-src/components/HeroLeaderboardSpotlight.tsx
-
-Purpose: Hero spotlight catch on the homepage.
-• Uses useLeaderboardRealtime (or a similar fetch) to pick a top entry.
-• Shows big image, species pill, angler username, stats.
-• Species badge uses the normalised species field:
-• species_slug (with a formatter) and/or fallback to raw species.
-
-⸻
-
-Notifications components
-• src/components/NotificationsBell.tsx
-• Shows unread count in the header.
-• Opens dropdown with notifications list.
-• Uses useNotifications + resolveNotificationPath for navigation.
-• src/components/ProfileNotificationsSection.tsx
-• Displays notifications on the profile page (or user dashboard-like area).
-• Also uses useNotifications.
-• src/components/notifications/NotificationListItem.tsx
-• Renders a single notification row.
-• Uses resolveNotificationPath to decide where the “View” action navigates:
-• Catch detail for catch-related notifications.
-• Actor profile for follow-type notifications.
-• Other types (e.g. admin_report) as defined in utils.
-
-⸻
-
-4. Notification Helpers / Routing
-
-src/lib/notifications-utils.ts
-
-Purpose: Routing + formatting for notifications.
-
-Key behaviours:
-• resolveNotificationPath(notification):
-• If notification.catch_id is present and type is one of:
-• new_comment, mention, new_reaction, new_rating
-• → return /catch/<catch_id>.
-• For new_follower (and similar profile-only types):
-• Fallback to actor profile path: /profile/<actor_username or id>.
-• admin_report / other special cases:
-• Can use extra_data (e.g. report_id) for future admin routing.
-
-⸻
-
-5. How to Use This With AI
-
-When asking an AI model to work on ReelyRated frontend:
-• Mention the relevant file(s) from this doc.
-• If you paste code, include just those files or sections, not the entire repo.
-• Cross-check any schema changes or queries against:
-• ERD.md
-• supabase/migrations/\*.sql
-• src/integrations/supabase/types.ts
+- Reference this doc plus the specific page/component when asking for changes.  
+- For anything involving privacy/blocks/deletion/venues, read section 4 first.  
+- Prefer existing views/RPCs (SECURITY DEFINER/INVOKER + RLS patterns) over new raw SQL; if adding RPCs, follow existing patterns.  
+- Keep hooks order intact in existing components; respect RLS-driven behaviour in UI (no client-side bypasses).
