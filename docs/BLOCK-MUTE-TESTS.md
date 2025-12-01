@@ -97,3 +97,81 @@ Expected:
 - Admin accounts see the same Safety & blocking list for themselves.
 - Block/unblock works the same via the list.
 - There is no view exposing “who has blocked me”; only “who I blocked”.
+
+---
+
+## Blocked anglers list – Settings UI (end-to-end)
+
+This section covers the dedicated “Safety & blocking” panel in **Profile settings** and ensures it stays in sync with profile-level block behaviour and backend state.
+
+### B1. Empty state
+
+1. Create a fresh test user `settings_block_tester` (no blocks yet).
+2. Log in as `settings_block_tester` and go to **Settings → Profile**.
+3. Scroll to the **Safety & blocking** card.
+
+**Expected:**
+- Card title: “Safety & blocking”.
+- Subtitle: “See and manage anglers you’ve blocked.”
+- Body shows the dashed empty-state card with copy:  
+  _“You haven’t blocked any anglers yet. If someone’s behaviour isn’t for you, you can block them from their profile.”_
+
+---
+
+### B2. List shows newly blocked user
+
+1. From the same account (`settings_block_tester`), visit another angler profile, e.g. `/profile/test2`.
+2. Use the **Block user** action on their profile.
+3. Return to **Settings → Profile → Safety & blocking**.
+
+**Expected:**
+- `test2` now appears in the list:
+  - Avatar (or fallback initials).
+  - Display name and `@username`.
+  - A short bio line (or “No bio yet.”).
+  - An **Unblock** button on the right.
+- No loading or error message once the panel settles.
+
+---
+
+### B3. Unblock flow from Settings
+
+1. In **Safety & blocking**, click **Unblock** on `test2`.
+2. Wait for the toast to appear.
+
+**Expected:**
+- Toast message:  
+  - If the user has a username: _“You’ve unblocked @test2.”_  
+  - Otherwise: _“User unblocked.”_
+- `test2` disappears from the blocked list.
+- A manual refresh of the page still shows an empty state (no stale blocked entries).
+
+---
+
+### B4. Deleted-account edge case
+
+_Precondition:_ A previously blocked account has been deleted via the account deletion flow.
+
+1. As a test account that blocked the now-deleted user, go to **Settings → Profile → Safety & blocking**.
+
+**Expected:**
+- That row renders as:
+  - Display name: “Deleted angler”.
+  - Secondary line: “Account deleted”.
+  - Bio line: “This angler deleted their account.”
+- The **Unblock** button is still available and works if clicked.
+- No crashes or unexpected errors.
+
+---
+
+### B5. Consistency with feed/profile behaviour
+
+1. As user A, block user B from B’s profile.
+2. Confirm:
+   - A cannot see B’s catches or comments anywhere (feed, venue pages, catch detail).
+3. Go to **Settings → Profile → Safety & blocking** as user A.
+
+**Expected:**
+- B appears exactly once in the list.
+- Unblocking B from this panel restores B’s visibility in feed/profile/venue pages, matching the main block logic tests.
+- There is no separate “hidden” block state that differs between Settings and profile.

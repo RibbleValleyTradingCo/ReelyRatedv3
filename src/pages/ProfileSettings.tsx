@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -6,31 +6,23 @@ import { toast } from "sonner";
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
 import { Navbar } from "@/components/Navbar";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import ProfileAvatarSection from "@/components/settings/ProfileAvatarSection";
+import ProfileSettingsAvatarCard from "@/components/settings/ProfileSettingsAvatarCard";
+import ProfileSettingsAccountCard from "@/components/settings/ProfileSettingsAccountCard";
+import ProfileSettingsEmailChangeCard from "@/components/settings/ProfileSettingsEmailChangeCard";
+import ProfileSettingsPasswordCard from "@/components/settings/ProfileSettingsPasswordCard";
+import ProfileSettingsDataExportCard from "@/components/settings/ProfileSettingsDataExportCard";
+import ProfileSettingsDeleteAccountCard from "@/components/settings/ProfileSettingsDeleteAccountCard";
+import ProfileSettingsPrivacyCard from "@/components/settings/ProfileSettingsPrivacyCard";
+import ProfileSettingsSafetyBlockingCard, {
+  BlockedProfileEntry,
+} from "@/components/settings/ProfileSettingsSafetyBlockingCard";
+import ProfileSettingsDangerZoneCard from "@/components/settings/ProfileSettingsDangerZoneCard";
+import ProfileSettingsNav, { SectionId } from "@/components/settings/ProfileSettingsNav";
 import { isAdminUser } from "@/lib/admin";
-import { Loader2, LogOut } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { profileSchema, passwordChangeSchema, type ProfileFormData, type PasswordChangeFormData } from "@/schemas";
-
-const PROFILE_STATUS_PLACEHOLDER = "Nothing here yet. Tell people what you fish for.";
 
 const ProfileSettings = () => {
   const { user, loading, signOut } = useAuth();
@@ -74,11 +66,15 @@ const ProfileSettings = () => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [deleteReason, setDeleteReason] = useState("");
-  const [blockedProfiles, setBlockedProfiles] = useState<
-    { blocked_id: string; profiles: { id: string; username: string | null; avatar_path: string | null; avatar_url: string | null; bio: string | null } | null }[]
-  >([]);
+  const [blockedProfiles, setBlockedProfiles] = useState<BlockedProfileEntry[]>([]);
   const [blockedLoading, setBlockedLoading] = useState(false);
   const [blockedError, setBlockedError] = useState<string | null>(null);
+  const [activeSection, setActiveSection] = useState<SectionId>("profile");
+  const profileSectionRef = useRef<HTMLDivElement | null>(null);
+  const securitySectionRef = useRef<HTMLDivElement | null>(null);
+  const dataPrivacySectionRef = useRef<HTMLDivElement | null>(null);
+  const safetyBlockingSectionRef = useRef<HTMLDivElement | null>(null);
+  const dangerZoneSectionRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -333,6 +329,23 @@ const ProfileSettings = () => {
     }
   };
 
+  const handleUnblock = async (blockedId: string, username?: string | null) => {
+    try {
+      const { error } = await supabase.rpc("unblock_profile", {
+        p_blocked_id: blockedId,
+      });
+      if (error) {
+        throw error;
+      }
+      toast.success(username ? `You’ve unblocked @${username}.` : "User unblocked.");
+      setBlockedProfiles((prev) => prev.filter((entry) => entry.blocked_id !== blockedId));
+      void fetchBlockedProfiles();
+    } catch (error) {
+      console.error("Failed to unblock user", error);
+      toast.error("We couldn’t unblock this user. Please try again.");
+    }
+  };
+
   const fetchBlockedProfiles = useCallback(async () => {
     if (!user) {
       setBlockedProfiles([]);
@@ -343,7 +356,7 @@ const ProfileSettings = () => {
       setBlockedError(null);
       const { data, error } = await supabase
         .from("profile_blocks")
-        .select("blocked_id, profiles:blocked_id (id, username, avatar_path, avatar_url, bio)")
+        .select("blocked_id, profiles:blocked_id (id, username, full_name, avatar_path, avatar_url, bio, is_deleted)")
         .eq("blocker_id", user.id);
       if (error) {
         throw error;
@@ -357,9 +370,54 @@ const ProfileSettings = () => {
     }
   }, [user]);
 
+  const handleNavSelect = (id: SectionId) => {
+    const sectionRefMap: Record<SectionId, RefObject<HTMLDivElement>> = {
+      "profile": profileSectionRef,
+      "security": securitySectionRef,
+      "data-privacy": dataPrivacySectionRef,
+      "safety-blocking": safetyBlockingSectionRef,
+      "danger-zone": dangerZoneSectionRef,
+    };
+    const target = sectionRefMap[id].current;
+    if (target) {
+      const offset = 80;
+      const top = target.getBoundingClientRect().top + window.scrollY - offset;
+      window.scrollTo({ top, behavior: "smooth" });
+    }
+    setActiveSection(id);
+  };
+
   useEffect(() => {
     void fetchBlockedProfiles();
   }, [fetchBlockedProfiles]);
+
+  useEffect(() => {
+    const sections: { id: SectionId; ref: RefObject<HTMLDivElement> }[] = [
+      { id: "profile", ref: profileSectionRef },
+      { id: "security", ref: securitySectionRef },
+      { id: "data-privacy", ref: dataPrivacySectionRef },
+      { id: "safety-blocking", ref: safetyBlockingSectionRef },
+      { id: "danger-zone", ref: dangerZoneSectionRef },
+    ];
+
+    const handleScroll = () => {
+      const offset = 140;
+      let current: SectionId = "profile";
+      sections.forEach((section) => {
+        const el = section.ref.current;
+        if (!el) return;
+        const rect = el.getBoundingClientRect();
+        if (rect.top - offset <= 0) {
+          current = section.id;
+        }
+      });
+      setActiveSection((prev) => (prev === current ? prev : current));
+    };
+
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   if (loading || isLoading) {
     return (
@@ -374,6 +432,13 @@ const ProfileSettings = () => {
   }
 
   const isAdmin = isAdminUser(user?.id);
+  const navSections = [
+    { id: "profile" as const, label: "Profile", active: activeSection === "profile" },
+    { id: "security" as const, label: "Security", active: activeSection === "security" },
+    { id: "data-privacy" as const, label: "Data & privacy", active: activeSection === "data-privacy" },
+    { id: "safety-blocking" as const, label: "Safety & blocking", active: activeSection === "safety-blocking" },
+    { id: "danger-zone" as const, label: "Danger zone", active: activeSection === "danger-zone" },
+  ];
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -387,456 +452,91 @@ const ProfileSettings = () => {
             </div>
             <p className="text-sm text-slate-600">Manage your account, avatar and security.</p>
           </div>
+          <ProfileSettingsNav sections={navSections} onSelect={handleNavSelect} />
 
-          {user && (
-            <Card className="rounded-xl border border-slate-200 bg-white shadow-sm">
-              <CardHeader className="px-5 pb-2 pt-5 md:px-8 md:pt-8 md:pb-4">
-                <CardTitle className="text-lg">Avatar</CardTitle>
-                <p className="text-sm text-slate-600">Upload a photo so other anglers can recognise you.</p>
-              </CardHeader>
-              <CardContent className="px-5 pb-5 md:px-8 md:pb-8">
-                <ProfileAvatarSection
-                  userId={user.id}
-                  username={profileForm.watch("username") || user.user_metadata?.username || user.email || "Angler"}
-                  avatarPath={avatarPath}
-                  legacyAvatarUrl={legacyAvatarUrl}
-                  onAvatarChange={(path) => {
-                    setAvatarPath(path);
-                    if (path) {
-                      setLegacyAvatarUrl(null);
-                    }
-                  }}
-                />
-              </CardContent>
-            </Card>
-          )}
+          <div ref={profileSectionRef} id="profile" className="space-y-8">
+            {user && (
+              <ProfileSettingsAvatarCard
+                userId={user.id}
+                username={profileForm.watch("username") || user.user_metadata?.username || user.email || "Angler"}
+                avatarPath={avatarPath}
+                legacyAvatarUrl={legacyAvatarUrl}
+                onAvatarChange={(path) => {
+                  setAvatarPath(path);
+                  if (path) {
+                    setLegacyAvatarUrl(null);
+                  }
+                }}
+              />
+            )}
 
-          <form className="space-y-8" onSubmit={profileForm.handleSubmit(handleSaveProfile)}>
-            <Card className="rounded-xl border border-slate-200 bg-white shadow-sm">
-              <CardHeader className="px-5 pb-2 pt-5 md:px-8 md:pt-8 md:pb-4">
-                <CardTitle className="text-lg">Account</CardTitle>
-                <p className="text-sm text-slate-600">Keep your public profile and contact details up to date.</p>
-              </CardHeader>
-              <CardContent className="space-y-6 px-5 pb-5 md:px-8 md:pb-8">
-                <div className="grid gap-6 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <div>
-                      <Label htmlFor="username">Username</Label>
-                      <p className="text-xs text-slate-500">Unique handle anglers will see on your posts.</p>
-                    </div>
-                    <Input
-                      id="username"
-                      {...profileForm.register("username")}
-                      placeholder="angling_legend"
-                      aria-invalid={!!profileForm.formState.errors.username}
-                      className="mt-1 w-full rounded-md border border-slate-200 bg-white text-slate-900 focus:border-sky-500 focus:ring-2 focus:ring-sky-500 focus:ring-offset-1 focus:ring-offset-white"
-                    />
-                    {profileForm.formState.errors.username && (
-                      <p className="text-sm text-red-600">
-                        {profileForm.formState.errors.username.message}
-                      </p>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <div>
-                      <Label htmlFor="fullName">Full name</Label>
-                      <p className="text-xs text-slate-500">Optional. Share your real name with the community.</p>
-                    </div>
-                    <Input
-                      id="fullName"
-                      {...profileForm.register("fullName")}
-                      placeholder="Alex Rivers"
-                      aria-invalid={!!profileForm.formState.errors.fullName}
-                      className="mt-1 w-full rounded-md border border-slate-200 bg-white text-slate-900 focus:border-sky-500 focus:ring-2 focus:ring-sky-500 focus:ring-offset-1 focus:ring-offset-white"
-                    />
-                    {profileForm.formState.errors.fullName && (
-                      <p className="text-sm text-red-600">
-                        {profileForm.formState.errors.fullName.message}
-                      </p>
-                    )}
-                  </div>
-                  <div className="space-y-2 md:col-span-2">
-                    <div>
-                      <Label htmlFor="email">Email</Label>
-                      <p className="text-xs text-slate-500">We&apos;ll send a verification link if you change this.</p>
-                    </div>
-                    <Input
-                      id="email"
-                      type="email"
-                      {...profileForm.register("email")}
-                      placeholder="angler@example.com"
-                      aria-invalid={!!profileForm.formState.errors.email}
-                      readOnly
-                      disabled
-                      className="mt-1 w-full cursor-not-allowed rounded-md border border-slate-200 bg-slate-50 text-slate-500"
-                    />
-                    {profileForm.formState.errors.email && (
-                      <p className="text-sm text-red-600">
-                        {profileForm.formState.errors.email.message}
-                      </p>
-                    )}
-                  </div>
+            <form className="space-y-8" onSubmit={profileForm.handleSubmit(handleSaveProfile)}>
+              <ProfileSettingsAccountCard profileForm={profileForm} />
+
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-end">
+                <div className="text-xs text-slate-500 md:order-1">
+                  Changes take effect immediately after saving.
                 </div>
-                <div className="space-y-2">
-                  <div>
-                    <Label htmlFor="bio">Bio / status</Label>
-                    <p className="text-xs text-slate-500">Tell anglers what you fish for or share a quick update.</p>
-                  </div>
-                  <Textarea
-                    id="bio"
-                    {...profileForm.register("bio")}
-                    placeholder={PROFILE_STATUS_PLACEHOLDER}
-                    rows={4}
-                    aria-invalid={!!profileForm.formState.errors.bio}
-                    className="mt-1 w-full rounded-md border border-slate-200 bg-white text-slate-900 focus:border-sky-500 focus:ring-2 focus:ring-sky-500 focus:ring-offset-1 focus:ring-offset-white"
-                  />
-                  {profileForm.formState.errors.bio && (
-                    <p className="text-sm text-red-600">
-                      {profileForm.formState.errors.bio.message}
-                    </p>
+                <Button
+                  type="submit"
+                  disabled={profileForm.formState.isSubmitting || (!profileForm.formState.isDirty && avatarPath === initialAvatarPath)}
+                  className="order-2 h-11 w-full bg-sky-600 text-white hover:bg-sky-700 md:w-auto"
+                >
+                  {profileForm.formState.isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saving…
+                    </>
+                  ) : (
+                    "Save changes"
                   )}
-                </div>
-              </CardContent>
-            </Card>
-
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-end">
-              <div className="text-xs text-slate-500 md:order-1">
-                Changes take effect immediately after saving.
-              </div>
-              <Button
-                type="submit"
-                disabled={profileForm.formState.isSubmitting || (!profileForm.formState.isDirty && avatarPath === initialAvatarPath)}
-                className="order-2 h-11 w-full bg-sky-600 text-white hover:bg-sky-700 md:w-auto"
-              >
-                {profileForm.formState.isSubmitting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Saving…
-                  </>
-                ) : (
-                  "Save changes"
-                )}
-              </Button>
-            </div>
-          </form>
-
-          <Card className="rounded-xl border border-slate-200 bg-white shadow-sm">
-            <CardHeader className="px-5 pb-2 pt-5 md:px-8 md:pt-8 md:pb-4">
-              <CardTitle className="text-lg">Change email</CardTitle>
-              <p className="text-sm text-slate-600">
-                Current email: <span className="font-medium">{initialEmail || "Not set"}</span>. Updates require a
-                verification link.
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-6 px-5 pb-5 md:px-8 md:pb-8">
-              <form className="space-y-4" onSubmit={emailForm.handleSubmit(handleEmailChange)}>
-                <div className="space-y-2">
-                  <Label htmlFor="newEmail">New email address</Label>
-                  <Input
-                    id="newEmail"
-                    type="email"
-                    placeholder="angler+new@example.com"
-                    {...emailForm.register("newEmail")}
-                    aria-invalid={!!emailForm.formState.errors?.newEmail}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="confirmEmail">Confirm new email</Label>
-                  <Input
-                    id="confirmEmail"
-                    type="email"
-                    placeholder="Repeat the new email"
-                    {...emailForm.register("confirmEmail")}
-                    aria-invalid={!!emailForm.formState.errors?.confirmEmail}
-                  />
-                </div>
-                <Button type="submit" disabled={emailForm.formState.isSubmitting}>
-                  {emailForm.formState.isSubmitting ? "Sending confirmation…" : "Send verification email"}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-
-          <form onSubmit={passwordForm.handleSubmit(handleUpdatePassword)} className="space-y-6">
-            <Card className="rounded-xl border border-slate-200 bg-white shadow-sm">
-              <CardHeader className="px-5 pb-2 pt-5 md:px-8 md:pt-8 md:pb-4">
-                <CardTitle className="text-lg">Security</CardTitle>
-                <p className="text-sm text-slate-600">Update your password to keep your account secure.</p>
-              </CardHeader>
-              <CardContent className="space-y-6 px-5 pb-5 md:px-8 md:pb-8">
-                <div className="rounded-lg border border-slate-100 bg-slate-50/80 px-4 py-3 text-xs text-slate-600">
-                  Use at least 8 characters with a mix of letters, numbers, or symbols for your new password.
-                </div>
-                <div className="grid gap-6 md:grid-cols-2">
-                  <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="currentPassword">Current password</Label>
-                    <Input
-                      id="currentPassword"
-                      type="password"
-                      {...passwordForm.register("currentPassword")}
-                      placeholder="••••••••"
-                      aria-invalid={!!passwordForm.formState.errors.currentPassword}
-                      className="mt-1 w-full rounded-md border border-slate-200 bg-white text-slate-900 focus:border-sky-500 focus:ring-2 focus:ring-sky-500 focus:ring-offset-1 focus:ring-offset-white"
-                    />
-                    {passwordForm.formState.errors.currentPassword && (
-                      <p className="text-sm text-red-600">
-                        {passwordForm.formState.errors.currentPassword.message}
-                      </p>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="newPassword">New password</Label>
-                    <Input
-                      id="newPassword"
-                      type="password"
-                      {...passwordForm.register("newPassword")}
-                      placeholder="••••••••"
-                      aria-invalid={!!passwordForm.formState.errors.newPassword}
-                      className="mt-1 w-full rounded-md border border-slate-200 bg-white text-slate-900 focus:border-sky-500 focus:ring-2 focus:ring-sky-500 focus:ring-offset-1 focus:ring-offset-white"
-                    />
-                    {passwordForm.formState.errors.newPassword && (
-                      <p className="text-sm text-red-600">
-                        {passwordForm.formState.errors.newPassword.message}
-                      </p>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="confirmPassword">Confirm new password</Label>
-                    <Input
-                      id="confirmPassword"
-                      type="password"
-                      {...passwordForm.register("confirmPassword")}
-                      placeholder="••••••••"
-                      aria-invalid={!!passwordForm.formState.errors.confirmPassword}
-                      className="mt-1 w-full rounded-md border border-slate-200 bg-white text-slate-900 focus:border-sky-500 focus:ring-2 focus:ring-sky-500 focus:ring-offset-1 focus:ring-offset-white"
-                    />
-                    {passwordForm.formState.errors.confirmPassword && (
-                      <p className="text-sm text-red-600">
-                        {passwordForm.formState.errors.confirmPassword.message}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <div className="flex justify-end">
-                  <Button type="submit" disabled={passwordForm.formState.isSubmitting} className="h-11 w-full bg-sky-600 text-white hover:bg-sky-700 md:w-auto">
-                    {passwordForm.formState.isSubmitting ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Updating…
-                      </>
-                    ) : (
-                      "Update password"
-                    )}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </form>
-
-          <Card className="rounded-xl border border-slate-200 bg-white shadow-sm">
-            <CardHeader className="px-5 pb-2 pt-5 md:px-8 md:pt-8 md:pb-4">
-              <CardTitle className="text-lg">Your data & privacy</CardTitle>
-              <p className="text-sm text-slate-600">
-                You can download a technical JSON file containing your catches, comments, ratings, follows, and other account data. This is mainly for your own records, or to share with support if you ever need help with your account.
-              </p>
-              <p className="text-xs text-slate-500 mt-2">Note: this export is not a pretty report — it&apos;s a developer-style JSON file.</p>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-4 px-5 pb-5 md:flex-row md:items-center md:justify-between md:px-8 md:pb-8">
-              <p className="text-sm text-slate-600 md:max-w-lg">
-                Use this export for your own records. Deletion/anonymisation will be added later.
-              </p>
-              <Button
-                type="button"
-                className="h-11 min-w-[200px] bg-slate-900 text-white hover:bg-slate-800"
-                onClick={handleDownloadExport}
-                disabled={isExporting}
-              >
-                {isExporting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Preparing export…
-                  </>
-                ) : (
-                  "Download my data (JSON)"
-                )}
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-xl border border-slate-200 bg-white shadow-sm">
-            <CardHeader className="px-5 pb-2 pt-5 md:px-8 md:pt-8 md:pb-4">
-              <CardTitle className="text-lg">Delete your account</CardTitle>
-              <p className="text-sm text-slate-600">
-                This will log you out and begin the deletion process. Your profile will be anonymised and your catches/comments hidden from normal surfaces, while moderation history may be retained for safety. This can’t be undone from the UI.
-              </p>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-4 px-5 pb-5 md:flex-row md:items-center md:justify-between md:px-8 md:pb-8">
-              <p className="text-sm text-slate-600 md:max-w-lg">
-                You can optionally share why you&apos;re leaving before confirming. Deletion is permanent for this account.
-              </p>
-              <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-                <AlertDialogTrigger asChild>
-                  <Button variant="destructive" className="h-11 min-w-[200px]">
-                    Request account deletion
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Are you sure you want to delete your account?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      This will log you out, anonymise your profile, and hide your catches/comments. Some data is retained for moderation and safety. This cannot be undone from the UI.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <div className="space-y-2">
-                    <Label htmlFor="deleteReason">Reason for leaving (optional)</Label>
-                    <Textarea
-                      id="deleteReason"
-                      value={deleteReason}
-                      onChange={(e) => setDeleteReason(e.target.value)}
-                      placeholder="Let us know why you’re leaving..."
-                    />
-                  </div>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel disabled={isDeletingAccount}>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={handleAccountDeletion}
-                      disabled={isDeletingAccount}
-                      className="bg-red-600 text-white hover:bg-red-700"
-                    >
-                      {isDeletingAccount ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Deleting…
-                        </>
-                      ) : (
-                        "Delete my account"
-                      )}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-xl border border-slate-200 bg-white shadow-sm">
-            <CardHeader className="px-5 pb-2 pt-5 md:px-8 md:pt-8 md:pb-4">
-              <CardTitle className="text-lg">Profile privacy</CardTitle>
-              <p className="text-sm text-slate-600">
-                Only people who follow you can see your catches. Your profile may still appear in search and leaderboards.
-              </p>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-4 px-5 pb-5 md:flex-row md:items-center md:justify-between md:px-8 md:pb-8">
-              <p className="text-sm text-slate-600 md:max-w-lg">
-                Toggle privacy to control who can view your catches and detailed stats.
-              </p>
-              <div className="flex items-center gap-3">
-                <Label htmlFor="privateAccount" className="text-sm font-medium text-slate-800">
-                  Private account
-                </Label>
-                <Switch
-                  id="privateAccount"
-                  checked={isPrivate}
-                  onCheckedChange={(checked) => {
-                    if (!isUpdatingPrivacy) {
-                      void handlePrivacyToggle(checked);
-                    }
-                  }}
-                  disabled={isUpdatingPrivacy}
-                />
-                {isUpdatingPrivacy ? (
-                  <span className="text-xs text-slate-500">Saving…</span>
-                ) : (
-                  <span className="text-xs text-slate-500">{isPrivate ? "Enabled" : "Disabled"}</span>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-xl border border-slate-200 bg-white shadow-sm">
-            <CardHeader className="px-5 pb-2 pt-5 md:px-8 md:pt-8 md:pb-4">
-              <CardTitle className="text-lg">Safety &amp; blocking</CardTitle>
-              <p className="text-sm text-slate-600">See and manage anglers you&apos;ve blocked.</p>
-            </CardHeader>
-            <CardContent className="space-y-4 px-5 pb-5 md:px-8 md:pb-8">
-              {blockedLoading ? (
-                <div className="flex items-center gap-2 text-sm text-slate-500">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Loading blocked anglers…
-                </div>
-              ) : blockedError ? (
-                <p className="text-sm text-red-600">{blockedError}</p>
-              ) : blockedProfiles.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                  You haven&apos;t blocked any anglers yet. If someone&apos;s behaviour isn&apos;t for you, you can block them from their profile.
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {blockedProfiles.map((row) => {
-                    const blockedProfile = row.profiles;
-                    const username = blockedProfile?.username || "Unknown angler";
-                    const bio = blockedProfile?.bio?.trim() || "No bio yet.";
-                    return (
-                      <div
-                        key={row.blocked_id}
-                        className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-4 py-3"
-                      >
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-10 w-10">
-                            <AvatarImage src={blockedProfile?.avatar_url ?? undefined} />
-                            <AvatarFallback>{username.slice(0, 2).toUpperCase()}</AvatarFallback>
-                          </Avatar>
-                          <div className="space-y-1">
-                            <div className="text-sm font-medium text-slate-900">{username}</div>
-                            <p className="text-xs text-slate-600 line-clamp-2">{bio}</p>
-                          </div>
-                        </div>
-                        <Button
-                          variant="outline"
-                          className="h-9"
-                          onClick={async () => {
-                            try {
-                              const { error } = await supabase.rpc("unblock_profile", {
-                                p_blocked_id: row.blocked_id,
-                              });
-                              if (error) {
-                                throw error;
-                              }
-                              toast.success("User unblocked. Their content will reappear based on privacy settings.");
-                              setBlockedProfiles((prev) => prev.filter((entry) => entry.blocked_id !== row.blocked_id));
-                              void fetchBlockedProfiles();
-                            } catch (error) {
-                              console.error("Failed to unblock user", error);
-                              toast.error("We couldn’t unblock this user. Please try again.");
-                            }
-                          }}
-                        >
-                          Unblock
-                        </Button>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-xl border border-red-200 bg-red-50/70 shadow-none">
-            <CardHeader className="px-5 pb-2 pt-5 md:px-8 md:pt-8 md:pb-4">
-              <CardTitle className="text-base font-semibold text-red-600">Danger zone</CardTitle>
-              <p className="text-sm text-red-600/80">Sign out safely to secure your account.</p>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-4 px-5 pb-5 md:flex-row md:items-center md:justify-between md:px-8 md:pb-8">
-              <p className="text-sm text-red-600/80 md:max-w-md">
-                Leaving the session? Sign out to keep your catches and messages secure.
-              </p>
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <Button variant="destructive" className="h-11 min-w-[140px]" onClick={handleSignOut}>
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Sign out
                 </Button>
               </div>
-            </CardContent>
-          </Card>
+            </form>
+          </div>
+
+          <div ref={securitySectionRef} id="security" className="space-y-6">
+            <ProfileSettingsPasswordCard passwordForm={passwordForm} onSubmit={handleUpdatePassword} />
+          </div>
+
+          <div ref={dataPrivacySectionRef} id="data-privacy" className="space-y-6">
+            <ProfileSettingsEmailChangeCard
+              initialEmail={initialEmail}
+              emailForm={emailForm}
+              onSubmit={handleEmailChange}
+            />
+            <ProfileSettingsDataExportCard isExporting={isExporting} onDownload={handleDownloadExport} />
+            <ProfileSettingsPrivacyCard
+              isPrivate={isPrivate}
+              isUpdatingPrivacy={isUpdatingPrivacy}
+              onTogglePrivacy={(checked) => {
+                void handlePrivacyToggle(checked);
+              }}
+            />
+          </div>
+
+          <div ref={safetyBlockingSectionRef} id="safety-blocking" className="space-y-6">
+            <ProfileSettingsSafetyBlockingCard
+              blockedProfiles={blockedProfiles}
+              blockedLoading={blockedLoading}
+              blockedError={blockedError}
+              onUnblock={(blockedId, username) => {
+                void handleUnblock(blockedId, username);
+              }}
+            />
+          </div>
+
+          <div ref={dangerZoneSectionRef} id="danger-zone" className="space-y-6">
+            <ProfileSettingsDeleteAccountCard
+              isDeleteDialogOpen={isDeleteDialogOpen}
+              setIsDeleteDialogOpen={setIsDeleteDialogOpen}
+              deleteReason={deleteReason}
+              setDeleteReason={setDeleteReason}
+              isDeletingAccount={isDeletingAccount}
+              onDeleteAccount={handleAccountDeletion}
+            />
+            <ProfileSettingsDangerZoneCard onSignOut={handleSignOut} />
+          </div>
         </div>
       </div>
     </div>

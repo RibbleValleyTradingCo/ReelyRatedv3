@@ -12,7 +12,7 @@ Phase 2.1 (account deletion/export) can ship independently. Phase 2.2 (profile p
 
 ### 2.1 Full Account Deletion (building on current groundwork)
 
-**Status:** Partially designed. Schema groundwork created via `2049_account_deletion_schema_prep.sql`. Export RPC + “Download my data (JSON)” implemented.
+**Status:** Backend + frontend implemented (schema via `2049_account_deletion_schema_prep.sql`, `request_account_deletion` RPC, Settings UI + dialog, `/account-deleted` page, JSON export). Edge cases/QA are tracked in `docs/ACCOUNT-DELETION-TESTS.md`.
 
 **Goal:** Implement user-initiated account deletion as soft-delete + anonymisation, preserving audit and moderation history and avoiding broken foreign keys.
 
@@ -91,17 +91,13 @@ Phase 2.1 (account deletion/export) can ship independently. Phase 2.2 (profile p
 
 **Docs & QA**
 
-- New doc: `ACCOUNT-DELETION-TESTS.md`
-  - Scenarios:
-    - Deleting a normal active user.
-    - Deleting a warned/suspended/banned user.
-    - Admin viewing a deleted user’s profile and moderation history.
-    - Behaviour of feed, search, catch detail, and comments when the author is deleted.
-    - Notification behaviour before/after deletion.
+- See `ACCOUNT-DELETION-TESTS.md` for scenarios and edge cases (kept up to date with the implementation).
 
 ---
 
 ### 2.2 Profile Privacy (Public vs Private Profiles)
+
+**Status:** Implemented: `is_private` schema, Settings toggle, private-profile stub, and RLS enforcement for catches/comments/feed/search and venue pages. Future work: ensure all new browse/leaderboard/advanced-search endpoints reuse the same checks.
 
 **Goal:** Allow users to mark their profile as private so only followers (and admins) can see their catches and details.
 
@@ -125,7 +121,7 @@ Note: Schema + settings toggle + profile stub are implemented (is_private on pro
       - can see those catches.
   - For any search/explore RPCs:
     - Filter out catches of private accounts for non-followers.
-  - Audit existing feed/search/list RPCs and update to enforce `is_private` and follower/admin rules (not just new endpoints).
+  - Audit existing feed/search/list RPCs and update to enforce `is_private` and follower/admin rules (not just new endpoints). Initial pass is complete for feed/search and venue-related RPCs; any new discovery endpoints must follow the same pattern.
 
 **Frontend**
 
@@ -161,9 +157,10 @@ Note: Schema + settings toggle + profile stub are implemented (is_private on pro
 **Goal:** Give anglers tools to control their experience (hide content from specific users) without needing admin intervention.
 
 Status:
-- Backend block enforcement (RPCs, RLS on catches/comments, blocked-viewer stub) implemented.
-- Profile hero supports Block / Unblock actions and a blocked banner.
-- Next: blocked-anglers list in Settings.
+- Backend block enforcement (RPCs, RLS on catches/comments, comment creation guard, blocked-viewer stub) implemented.
+- Profile hero supports Block / Unblock actions and a blocked banner; follow is disabled when blocked.
+- Admin profiles have dedicated UX (Admin badge, no Follow/Block CTAs).
+- Next: blocked-anglers list in Settings and any comment-level mute UI.
 
 Note: Schema groundwork (`profile_blocks` via migration 2053_profile_blocks_schema.sql) is implemented. Backend block RPCs and RLS enforcement on catches/comments are now in place.
 
@@ -181,6 +178,7 @@ Note: Schema groundwork (`profile_blocks` via migration 2053_profile_blocks_sche
   - Enforce in queries/RPCs:
     - Feed/search/venue should exclude content authored by users the viewer has blocked (now enforced in catches RLS).
     - Comments from blocked users hidden via RLS.
+    - Comment read/write paths use `is_blocked_either_way`, so blockers don’t see comments from blocked users and cannot comment on their catches (admins bypass).
     - Disallow follow relationships where a block exists in either direction (follow links cleaned on block).
 
 **Frontend**
@@ -221,6 +219,22 @@ Note: Schema groundwork (`profile_blocks` via migration 2053_profile_blocks_sche
     - Comments (B’s comments hidden/collapsed for A).
     - Follow behaviour (cannot follow if blocked).
     - Notifications (future: reduce noise from blocked users).
+
+---
+
+### 2.4 Password reset UX (auth completeness)
+
+Status: Implemented (two-step reset: request link + reset form on /auth?reset_password=1; see PASSWORD-RESET-TESTS.md).
+
+**Goal:** Complete the auth story with basic email/password reset flow.
+
+- Backend/Frontend:
+  - Add request + reset screens and hook into Supabase password reset flow.
+  - Keep scope minimal (email link → reset form).
+
+**Docs & QA**
+
+- See `docs/PASSWORD-RESET-TESTS.md` for request/reset scenarios, invalid-link handling, and regression checks against the in-session password change.
 
 ---
 
@@ -273,7 +287,27 @@ Prerequisites: Phase 2.2 (profile privacy) and 2.3 (block/mute) must be in place
 
 ---
 
-### 3.2 Browse by Species / Waters / Regions
+### 3.2 Venues & Events (implemented; see venue docs)
+
+**Goal:** Provide venue-centric discovery with rich context, leaderboards, and events while respecting existing privacy and block rules.
+
+**Status:** Implemented (v1) – see `docs/VENUE-PAGES-DESIGN.md` and `docs/VENUE-PAGES-ROADMAP.md` for details.
+
+**Current scope (high level):**
+- `/venues` index: list of seeded venues with metadata and derived stats (total/recent catches, PBs, top species).
+- `/venues/:slug` detail page:
+  - Hero with venue metadata + stats.
+  - Per-venue “Top anglers” strip and “Top catches” leaderboard.
+  - “Recent activity” grid of catches.
+  - “Events & announcements” section (upcoming and past).
+- Admin venue tools:
+  - `/admin/venues` and `/admin/venues/:slug` for editing venue metadata.
+  - Admin-authored events (draft/published) with CRUD via RPCs.
+- All venue surfaces reuse existing RLS/privacy/block rules on catches/comments.
+
+---
+
+### 3.3 Browse by Species / Regions (future)
 
 **Goal:** Give a browsing experience beyond the feed: species-centric and venue-centric browsing.
 
@@ -294,9 +328,8 @@ Prerequisites: Phase 2.2 (profile privacy) and 2.3 (block/mute) must be in place
   - Species index:
     - List of supported species with counts.
     - Clicking a species → dedicated species feed.
-  - Waters/venues index:
-    - List of venues with summary stats (if available).
-    - Venue page → latest catches at that venue.
+  - Waters/regions:
+    - Build on the existing venue pages to offer region-centric browse (e.g. “Venues near you”, “Top venues in X region”) once Phase 3.2 is mature.
 
 ---
 
@@ -439,7 +472,9 @@ This phase is intentionally last: it has higher complexity and safety considerat
 
 ---
 
-## Phase 2.0 – Execution Plan (Next Steps)
+## Phase 2.0 – Execution Plan (historical)
+
+This was the original sequence used to ship Phase 2 (account deletion, privacy, blocks). It is kept for context; for current status and future work, see the Phase 2 subsections above and `docs/recent.md`.
 
 1) SQL/migrations – Implement `request_account_deletion(p_reason text)` RPC with soft-delete/anonymisation per design; preserve audit tables (new migration under supabase/migrations/*).  
 2) SQL/migrations – Update key RPCs (comment and catch creation, search helpers) to respect `is_deleted`, `locked_for_deletion`, and soft-deleted catches/comments.  
@@ -491,14 +526,3 @@ For each phase/feature:
    - Run through the test checklist in each design doc before merging.
 
 This roadmap is intentionally modular so we can pause between phases, re-prioritise, or deepen any specific area (e.g. privacy or PBs) before moving on.
-- Password reset UX
-
-**Goal:** Complete the auth story with basic email/password reset flow.
-
-- Backend/Frontend:
-  - Add request + reset screens and hook into Supabase password reset flow.
-  - Keep scope minimal (email link → reset form).
-
-**Docs & QA**
-
-- Add tests covering request/reset flows.

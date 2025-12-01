@@ -179,8 +179,8 @@ const AdminVenueEdit = () => {
     void loadOwners();
   }, [venue?.id]);
 
-  const parseCsv = (value: string) =>
-    value
+  const parseCsv = (value: string | undefined | null) =>
+    (value ?? "")
       .split(",")
       .map((item) => item.trim())
       .filter(Boolean);
@@ -206,10 +206,10 @@ const AdminVenueEdit = () => {
       toast.error("Failed to save changes");
     } else {
       toast.success("Venue updated");
-      console.log("Admin updated venue metadata, returned row:", data);
+      console.log("Admin updated venue metadata, returned:", data);
       // refresh
-      const { data } = await supabase.rpc("get_venue_by_slug", { p_slug: slug });
-      const row = (data as Venue[] | null)?.[0] ?? null;
+      const { data: refreshed } = await supabase.rpc("get_venue_by_slug", { p_slug: slug });
+      const row = (refreshed as Venue[] | null)?.[0] ?? null;
       setVenue(row);
     }
     setSaving(false);

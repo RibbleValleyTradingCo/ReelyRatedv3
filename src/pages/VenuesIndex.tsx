@@ -121,18 +121,26 @@ const VenuesIndex = () => {
         ) : (
           <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {venues.map((venue) => {
-              const chips = [
-                ...(venue.best_for_tags ?? []),
-                ...(venue.facilities ?? []),
-              ].filter(Boolean).slice(0, 3);
-              const totalLabel =
-                (venue.total_catches ?? 0) > 0
-                  ? `${venue.total_catches} catch${(venue.total_catches ?? 0) === 1 ? "" : "es"} logged`
-                  : "No catches logged yet";
-              const recentLabel =
-                (venue.recent_catches_30d ?? 0) > 0
-                  ? `${venue.recent_catches_30d} in the last 30 days`
-                  : "Be the first to log a catch here";
+              const allChips = [...(venue.best_for_tags ?? []), ...(venue.facilities ?? [])].filter(Boolean);
+              const chipDisplay = allChips.slice(0, 3);
+              const extraCount = allChips.length > 3 ? allChips.length - 3 : 0;
+              const total = venue.total_catches ?? 0;
+              const recent = venue.recent_catches_30d ?? 0;
+              const totalLabel = total > 0 ? `${total} catch${total === 1 ? "" : "es"} logged` : "Undiscovered – no catches logged yet";
+              let recentLabel = "";
+              if (total === 0) {
+                recentLabel = "Be the first to log a catch here";
+              } else if (recent > 0) {
+                recentLabel = `${recent} in the last 30 days`;
+              } else {
+                recentLabel = "Quiet recently";
+              }
+              const ticketType = venue.ticket_type?.trim();
+              const priceFrom = venue.price_from?.trim();
+              const location = venue.location?.trim() || "UK stillwater venue";
+              const tagline =
+                venue.short_tagline?.trim() ||
+                "Community catches coming soon. Imported from Add Catch venue options.";
 
               return (
                 <Card
@@ -140,23 +148,36 @@ const VenuesIndex = () => {
                   className="flex h-full flex-col border border-slate-200 bg-white shadow-sm transition hover:shadow-md focus-within:shadow-md"
                 >
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-xl font-semibold text-slate-900">{venue.name}</CardTitle>
-                    <p className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-slate-500">
-                      <MapPin className="h-4 w-4 text-slate-400" />
-                      {venue.location || "UK stillwater venue"}
-                    </p>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="space-y-1">
+                        <CardTitle className="text-xl font-semibold text-slate-900">{venue.name}</CardTitle>
+                        <p className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-slate-500">
+                          <MapPin className="h-4 w-4 text-slate-400" />
+                          {location}
+                        </p>
+                      </div>
+                      {ticketType ? (
+                        <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-700">
+                          {ticketType}
+                        </span>
+                      ) : null}
+                    </div>
                     <p className="text-sm text-slate-600 line-clamp-2">
-                      {venue.short_tagline || "Community catches coming soon. Imported from Add Catch venue options."}
+                      {tagline}
                     </p>
                   </CardHeader>
                   <CardContent className="flex flex-1 flex-col gap-3 pb-5">
-                    <div className="flex items-center justify-between text-xs text-slate-600">
-                      <span className="font-semibold text-slate-800">{totalLabel}</span>
-                      <span className="text-slate-500">{recentLabel}</span>
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                      <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-800">
+                        {totalLabel}
+                      </span>
+                      <span className="inline-flex items-center rounded-full bg-slate-50 px-3 py-1 text-slate-600">
+                        {recentLabel}
+                      </span>
                     </div>
-                    {chips.length > 0 ? (
+                    {chipDisplay.length > 0 ? (
                       <div className="flex flex-wrap gap-2">
-                        {chips.map((chip) => (
+                        {chipDisplay.map((chip) => (
                           <span
                             key={chip}
                             className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700"
@@ -164,12 +185,21 @@ const VenuesIndex = () => {
                             {chip}
                           </span>
                         ))}
+                        {extraCount > 0 ? (
+                          <span className="inline-flex items-center rounded-full bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600">
+                            +{extraCount} more
+                          </span>
+                        ) : null}
                       </div>
                     ) : null}
                     <div className="mt-auto flex items-center justify-between gap-3">
-                      <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        {venue.price_from ? `From ${venue.price_from}` : ""}
-                      </span>
+                      {priceFrom ? (
+                        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          From {priceFrom}
+                        </span>
+                      ) : (
+                        <span />
+                      )}
                       <Button asChild className="w-full rounded-full">
                         <Link to={`/venues/${venue.slug}`}>View venue</Link>
                       </Button>

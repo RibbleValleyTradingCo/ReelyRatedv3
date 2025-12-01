@@ -720,6 +720,51 @@ const AdminReports = () => {
 
   const canLoadMore = reports.length === pageSize * page;
 
+  const resetFilters = useCallback(() => {
+    setFilter("all");
+    setStatusFilter("open");
+    setDateRange("7d");
+    setSortOrder("newest");
+    setFilteredUserId(null);
+    setFilteredUsername(null);
+    setPage(1);
+  }, []);
+
+  const activeFilterChips = useMemo(() => {
+    const chips: { label: string; onClear: () => void }[] = [];
+    if (filter !== "all") {
+      chips.push({ label: `Type: ${filter}`, onClear: () => setFilter("all") });
+    }
+    if (statusFilter !== "open") {
+      chips.push({ label: `Status: ${statusFilter}`, onClear: () => setStatusFilter("open") });
+    }
+    if (dateRange !== "7d") {
+      chips.push({
+        label:
+          dateRange === "24h"
+            ? "Last 24h"
+            : dateRange === "30d"
+            ? "Last 30 days"
+            : dateRange === "all"
+            ? "All time"
+            : "Last 7 days",
+        onClear: () => setDateRange("7d"),
+      });
+    }
+    if (filteredUserId) {
+      chips.push({
+        label: filteredUsername ? `User: @${filteredUsername}` : "User filter",
+        onClear: () => {
+          setFilteredUserId(null);
+          setFilteredUsername(null);
+          navigate("/admin/reports", { replace: true });
+          setPage(1);
+        },
+      });
+    }
+    return chips;
+  }, [dateRange, filter, filteredUserId, filteredUsername, navigate, statusFilter]);
+
   const handleCloseDetails = () => {
     setSelectedReport(null);
     setDetails(null);
@@ -761,107 +806,155 @@ const AdminReports = () => {
           </Button>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Filters</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-wrap gap-3 items-center">
-            {(["all", "catch", "comment", "profile"] as const).map((type) => (
-              <Button
-                key={type}
-                variant={filter === type ? "ocean" : "outline"}
-                onClick={() => setFilter(type)}
-              >
-                {type === "all" ? "All reports" : type.charAt(0).toUpperCase() + type.slice(1)}
-              </Button>
-            ))}
-            <div className="h-8 w-px bg-border/60" aria-hidden />
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">Date</span>
-              <div className="flex rounded-md border border-border/70 overflow-hidden">
-                {(["24h", "7d", "30d", "all"] as const).map((range) => (
+        <Card className="border-border/70">
+          <CardContent className="space-y-4 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="space-y-1">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Filters
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Narrow down the reports queue.
+                </p>
+              </div>
+              {activeFilterChips.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2">
+                  {activeFilterChips.map((chip, index) => (
+                    <Button
+                      key={chip.label + index.toString()}
+                      variant="secondary"
+                      size="sm"
+                      className="rounded-full px-3"
+                      onClick={chip.onClear}
+                    >
+                      {chip.label}
+                    </Button>
+                  ))}
                   <Button
-                    key={range}
-                    variant={dateRange === range ? "ocean" : "ghost"}
+                    variant="ghost"
                     size="sm"
-                    className="rounded-none"
-                    onClick={() => {
-                      setDateRange(range);
-                      setPage(1);
-                    }}
+                    onClick={resetFilters}
+                    className="text-xs"
                   >
-                    {range === "24h" ? "24h" : range === "7d" ? "7 days" : range === "30d" ? "30 days" : "All"}
+                    Reset filters
                   </Button>
-                ))}
+                </div>
+              )}
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-muted-foreground">Type</p>
+                <div className="flex flex-wrap gap-2">
+                  {(["all", "catch", "comment", "profile"] as const).map((type) => (
+                    <Button
+                      key={type}
+                      variant={filter === type ? "ocean" : "outline"}
+                      size="sm"
+                      onClick={() => {
+                        setFilter(type);
+                        setPage(1);
+                      }}
+                    >
+                      {type === "all" ? "All" : type.charAt(0).toUpperCase() + type.slice(1)}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-muted-foreground">Status</p>
+                <div className="flex flex-wrap gap-2">
+                  {(["all", "open", "resolved", "dismissed"] as const).map((status) => (
+                    <Button
+                      key={status}
+                      variant={statusFilter === status ? "ocean" : "outline"}
+                      size="sm"
+                      onClick={() => {
+                        setStatusFilter(status);
+                        setPage(1);
+                      }}
+                    >
+                      {status === "all"
+                        ? "All statuses"
+                        : status.charAt(0).toUpperCase() + status.slice(1)}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-muted-foreground">Date</p>
+                <div className="flex">
+                  <div className="flex w-full rounded-md border border-border/70 overflow-hidden">
+                    {(["24h", "7d", "30d", "all"] as const).map((range) => (
+                      <Button
+                        key={range}
+                        variant={dateRange === range ? "ocean" : "ghost"}
+                        size="sm"
+                        className="flex-1 rounded-none"
+                        onClick={() => {
+                          setDateRange(range);
+                          setPage(1);
+                        }}
+                      >
+                        {range === "24h"
+                          ? "24h"
+                          : range === "7d"
+                          ? "7 days"
+                          : range === "30d"
+                          ? "30 days"
+                          : "All"}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
-            {(["all", "open", "resolved", "dismissed"] as const).map((status) => (
-              <Button
-                key={status}
-                variant={statusFilter === status ? "ocean" : "outline"}
-                onClick={() => setStatusFilter(status)}
-              >
-                {status === "all"
-                  ? "All statuses"
-                  : status.charAt(0).toUpperCase() + status.slice(1)}
-              </Button>
-            ))}
-            <div className="h-8 w-px bg-border/60" aria-hidden />
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span>Sort</span>
-              <div className="flex rounded-md border border-border/70 overflow-hidden">
-                {(["newest", "oldest"] as const).map((order) => (
-                  <Button
-                    key={order}
-                    variant={sortOrder === order ? "ocean" : "ghost"}
-                    size="sm"
-                    className="rounded-none"
-                    onClick={() => {
-                      setSortOrder(order);
-                      setPage(1);
-                    }}
-                  >
-                    {order === "newest" ? "Newest first" : "Oldest first"}
-                  </Button>
-                ))}
-              </div>
-            </div>
-            {filteredUserId ? (
-              <div className="flex items-center gap-2 rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">
-                <span>
-                  {filteredUsername ? `Reports about @${filteredUsername}` : "Reports about this user"}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 px-2 text-xs"
-                  onClick={() => {
-                    setFilteredUserId(null);
-                    setFilteredUsername(null);
-                    navigate("/admin/reports", { replace: true });
-                    setPage(1);
-                  }}
-                >
-                  Clear
-                </Button>
-              </div>
-            ) : null}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>Reports</CardTitle>
+            <div className="flex items-center justify-between gap-3">
+              <CardTitle>Reports</CardTitle>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <span>Sort</span>
+                <div className="flex rounded-md border border-border/70 overflow-hidden">
+                  {(["newest", "oldest"] as const).map((order) => (
+                    <Button
+                      key={order}
+                      variant={sortOrder === order ? "ocean" : "ghost"}
+                      size="sm"
+                      className="rounded-none"
+                      onClick={() => {
+                        setSortOrder(order);
+                        setPage(1);
+                      }}
+                    >
+                      {order === "newest" ? "Newest first" : "Oldest first"}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="space-y-3">
             {isLoading ? (
               <p className="text-sm text-muted-foreground">Loading reports…</p>
             ) : filteredReports.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                {filteredUserId
-                  ? `No reports about ${filteredUsername ? `@${filteredUsername}` : "this user"} match these filters.`
-                  : "No reports match these filters."}
-              </p>
+              <div className="rounded-md border border-dashed border-border/70 bg-muted/40 p-4">
+                <p className="text-sm text-muted-foreground">
+                  {filteredUserId
+                    ? `No reports about ${filteredUsername ? `@${filteredUsername}` : "this user"} match these filters.`
+                    : "No reports match these filters right now."}
+                </p>
+                <div className="mt-3">
+                  <Button variant="outline" size="sm" onClick={resetFilters}>
+                    Reset filters
+                  </Button>
+                </div>
+              </div>
             ) : (
               filteredReports.map((report) => {
                 const isSelected = selectedReport?.id === report.id;
@@ -1040,29 +1133,6 @@ const AdminReports = () => {
                               >
                                 Warn user
                               </Button>
-                              <Button
-                                variant="outline"
-                                onClick={() => void handleUpdateStatus(report.id, "dismissed")}
-                                disabled={isProcessingAction || isStatusUpdating || report.status === "dismissed"}
-                              >
-                                Dismiss
-                              </Button>
-                              <Button
-                                variant="outline"
-                                onClick={() => void handleUpdateStatus(report.id, "resolved")}
-                                disabled={isProcessingAction || isStatusUpdating || report.status === "resolved"}
-                              >
-                                Resolve
-                              </Button>
-                              {report.status !== "open" && (
-                                <Button
-                                  variant="ghost"
-                                  onClick={() => void handleUpdateStatus(report.id, "open")}
-                                  disabled={isProcessingAction || isStatusUpdating}
-                                >
-                                  Reopen
-                                </Button>
-                              )}
                             </div>
 
                             {canRestore && (

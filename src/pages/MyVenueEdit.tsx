@@ -17,6 +17,7 @@ type Venue = {
   location: string | null;
   short_tagline: string | null;
   description: string | null;
+  ticket_type: string | null;
   best_for_tags: string[] | null;
   facilities: string[] | null;
   price_from: string | null;
@@ -54,6 +55,7 @@ const MyVenueEdit = () => {
   const [form, setForm] = useState({
     short_tagline: "",
     description: "",
+    ticket_type: "",
     best_for_tags: "",
     facilities: "",
     price_from: "",
@@ -98,6 +100,7 @@ const MyVenueEdit = () => {
       setForm({
         short_tagline: row?.short_tagline ?? "",
         description: row?.description ?? "",
+        ticket_type: row?.ticket_type ?? "",
         best_for_tags: (row?.best_for_tags ?? []).join(", "),
         facilities: (row?.facilities ?? []).join(", "),
         price_from: row?.price_from ?? "",
@@ -146,7 +149,7 @@ const MyVenueEdit = () => {
   const handleSave = async () => {
     if (!venue?.id) return;
     setSaving(true);
-    const { error } = await supabase.rpc("owner_update_venue_metadata", {
+    const { data, error } = await supabase.rpc("owner_update_venue_metadata", {
       p_venue_id: venue.id,
       p_tagline: form.short_tagline || null,
       p_description: form.description || null,
@@ -163,6 +166,7 @@ const MyVenueEdit = () => {
       toast.error("Failed to save changes");
     } else {
       toast.success("Venue updated");
+      console.log("Updated venue from owner_update_venue_metadata", data);
     }
     setSaving(false);
   };
@@ -361,6 +365,14 @@ const MyVenueEdit = () => {
                   onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
                   rows={4}
                   placeholder="Brief description of the venue"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-foreground">Ticket type</label>
+                <Input
+                  value={form.ticket_type}
+                  onChange={(e) => setForm((prev) => ({ ...prev, ticket_type: e.target.value }))}
+                  placeholder="Day ticket fishery, Syndicate, Club water"
                 />
               </div>
               <div className="space-y-2">
