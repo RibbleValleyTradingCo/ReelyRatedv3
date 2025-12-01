@@ -64,6 +64,10 @@ const AdminUserModeration = () => {
   } | null>(null);
   const [warnings, setWarnings] = useState<WarningRow[]>([]);
   const [logRows, setLogRows] = useState<ModerationLogRow[]>([]);
+  const [warningsPage, setWarningsPage] = useState(1);
+  const [logPage, setLogPage] = useState(1);
+  const [warningsHasMore, setWarningsHasMore] = useState(true);
+  const [logHasMore, setLogHasMore] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [showWarnDialog, setShowWarnDialog] = useState(false);
   const [showSuspendDialog, setShowSuspendDialog] = useState(false);
@@ -79,6 +83,8 @@ const AdminUserModeration = () => {
   const fetchData = useCallback(async () => {
     if (!user || !isAdmin || !userId) return;
     setIsLoading(true);
+    const warningsLimit = 20;
+    const logLimit = 20;
 
     const [profileResp, warningsResp, logResp] = await Promise.all([
       supabase
@@ -91,13 +97,17 @@ const AdminUserModeration = () => {
         .select("id, reason, severity, duration_hours, created_at, admin:issued_by (id, username)")
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
-        .limit(20),
-      supabase
-        .from("moderation_log")
-        .select("id, action, target_type, target_id, metadata, created_at, admin:admin_id (id, username)")
-        .or(`user_id.eq.${userId},target_id.eq.${userId}`)
-        .order("created_at", { ascending: false })
-        .limit(20),
+        .range((warningsPage - 1) * warningsLimit, warningsPage * warningsLimit - 1),
+      supabase.rpc("admin_list_moderation_log", {
+        p_user_id: userId,
+        p_action: null,
+        p_search: null,
+        p_from: null,
+        p_to: null,
+        p_sort_direction: "desc",
+        p_limit: logLimit,
+        p_offset: (logPage - 1) * logLimit,
+      }),
     ]);
 
     if (profileResp.error) {
@@ -123,17 +133,27 @@ const AdminUserModeration = () => {
       setProfileStatus(null);
     }
 
-    setWarnings((warningsResp.data as WarningRow[]) ?? []);
+    const warningRows = (warningsResp.data as WarningRow[]) ?? [];
+    setWarnings((prev) => (warningsPage === 1 ? warningRows : [...prev, ...warningRows]));
+    setWarningsHasMore(warningRows.length === warningsLimit);
 
     const mappedLog = ((logResp.data as ModerationLogRow[]) ?? []).map((row) => {
       const metadata = row.metadata ?? {};
       const reason = typeof metadata["reason"] === "string" ? (metadata["reason"] as string) : "No reason provided";
       return { ...row, reason } satisfies ModerationLogRow;
     });
-    setLogRows(mappedLog);
+    setLogRows((prev) => (logPage === 1 ? mappedLog : [...prev, ...mappedLog]));
+    setLogHasMore(mappedLog.length === logLimit);
 
     setIsLoading(false);
-  }, [isAdmin, user, userId]);
+  }, [isAdmin, user, userId, warningsPage, logPage]);
+
+  useEffect(() => {
+    setWarningsPage(1);
+    setLogPage(1);
+    setWarningsHasMore(true);
+    setLogHasMore(true);
+  }, [userId]);
 
   useEffect(() => {
     void fetchData();
@@ -187,9 +207,16 @@ const AdminUserModeration = () => {
             ))}
           </TableBody>
         </Table>
+        {warningsHasMore && (
+          <div className="mt-3 text-right">
+            <Button variant="outline" size="sm" onClick={() => setWarningsPage((prev) => prev + 1)}>
+              Load more warnings
+            </Button>
+          </div>
+        )}
       </div>
     );
-  }, [warnings]);
+  }, [warnings, warningsHasMore]);
 
   const logTable = useMemo(() => {
     if (logRows.length === 0) {
@@ -259,9 +286,16 @@ const AdminUserModeration = () => {
             })}
           </TableBody>
         </Table>
+        {logHasMore && (
+          <div className="mt-3 text-right">
+            <Button variant="outline" size="sm" onClick={() => setLogPage((prev) => prev + 1)}>
+              Load more history
+            </Button>
+          </div>
+        )}
       </div>
     );
-  }, [logRows]);
+  }, [logRows, logHasMore]);
 
   const applyModerationAction = useCallback(
     async (params: {
@@ -459,7 +493,7 @@ const AdminUserModeration = () => {
                     variant="outline"
                     size="sm"
                     onClick={() =>
-                      navigate("/admin/reports", {
+                      navigate(`/admin/reports?reportedUserId=${userId}`, {
                         state: { filterUserId: userId, filterUsername: profileStatus?.username ?? null },
                       })
                     }
@@ -576,12 +610,7 @@ const AdminUserModeration = () => {
             {isLoading ? (
               <p className="text-sm text-muted-foreground">Loading…</p>
             ) : (
-              <>
-                {warningsTable}
-                {warnings.length === 20 ? (
-                  <p className="mt-2 text-xs text-muted-foreground">Showing the 20 most recent warnings.</p>
-                ) : null}
-              </>
+              warningsTable
             )}
           </CardContent>
         </Card>
@@ -594,12 +623,7 @@ const AdminUserModeration = () => {
             {isLoading ? (
               <p className="text-sm text-muted-foreground">Loading…</p>
             ) : (
-              <>
-                {logTable}
-                {logRows.length === 20 ? (
-                  <p className="mt-2 text-xs text-muted-foreground">Showing the 20 most recent moderation actions.</p>
-                ) : null}
-              </>
+              logTable
             )}
           </CardContent>
         </Card>

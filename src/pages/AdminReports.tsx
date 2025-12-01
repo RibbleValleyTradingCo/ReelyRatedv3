@@ -145,6 +145,7 @@ const AdminReports = () => {
   const [pageSize] = useState(20);
   const [page, setPage] = useState(1);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [dateRange, setDateRange] = useState<"24h" | "7d" | "30d" | "all">("7d");
 
   const [selectedReport, setSelectedReport] = useState<ReportRow | null>(null);
   const [details, setDetails] = useState<ReportDetails | null>(null);
@@ -166,36 +167,53 @@ const AdminReports = () => {
         setIsLoading(true);
       }
 
-      let query = supabase
-        .from("reports")
-        .select(
-          "id, target_type, target_id, reason, status, created_at, reporter:reporter_id (id, username, avatar_path, avatar_url)"
-        )
-        .order("created_at", { ascending: sortOrder === "oldest" ? true : false })
-        .range(0, pageSize * page - 1);
+      const dateDays =
+        dateRange === "24h" ? 1 : dateRange === "7d" ? 7 : dateRange === "30d" ? 30 : null;
+      const since = dateDays ? new Date(Date.now() - dateDays * 24 * 60 * 60 * 1000).toISOString() : null;
 
-      if (filteredUserId) {
-        query = query.eq("target_id", filteredUserId);
-      }
-
-      const { data, error } = await query;
+      const { data, error } = await supabase.rpc("admin_list_reports", {
+        p_status: statusFilter === "all" ? null : statusFilter,
+        p_type: filter === "all" ? null : filter,
+        p_reported_user_id: filteredUserId ?? null,
+        p_from: since,
+        p_to: null,
+        p_sort_direction: sortOrder === "oldest" ? "asc" : "desc",
+        p_limit: pageSize,
+        p_offset: (page - 1) * pageSize,
+      });
 
       if (error) {
         toast.error("Unable to load reports");
       } else if (data) {
-        setReports(data as unknown as ReportRow[]);
+        const normalized = (data as any[]).map((row) => ({
+          id: row.id,
+          target_type: row.target_type,
+          target_id: row.target_id,
+          reason: row.reason,
+          status: row.status,
+          created_at: row.created_at,
+          reporter: row.reporter_id
+            ? {
+                id: row.reporter_id,
+                username: row.reporter_username,
+                avatar_path: row.reporter_avatar_path,
+                avatar_url: row.reporter_avatar_url,
+              }
+            : null,
+        })) as ReportRow[];
+        setReports(normalized);
       }
 
       setIsLoading(false);
     },
-    [user, isAdmin, sortOrder, pageSize, page, filteredUserId]
+    [user, isAdmin, sortOrder, pageSize, page, statusFilter, filter, filteredUserId, dateRange]
   );
 
   useEffect(() => {
     const state = (location.state as { filterUserId?: string; filterUsername?: string } | null) ?? null;
     const stateUserId = state?.filterUserId ?? null;
     const stateUsername = state?.filterUsername ?? null;
-    const queryUserId = new URLSearchParams(location.search).get("userId");
+    const queryUserId = new URLSearchParams(location.search).get("reportedUserId") ?? new URLSearchParams(location.search).get("userId");
     const nextFilter = stateUserId ?? queryUserId ?? null;
     setFilteredUserId(nextFilter);
     setFilteredUsername(stateUsername ?? null);
@@ -489,17 +507,16 @@ const AdminReports = () => {
       if (!user || !isAdmin) return;
       setUpdatingId(reportId);
 
-      const { error } = await supabase
-        .from("reports")
-        .update({ status })
-        .eq("id", reportId);
+      const { error } = await supabase.rpc("admin_update_report_status", {
+        p_report_id: reportId,
+        p_status: status,
+        p_resolution_notes: null,
+      });
 
       if (error) {
         toast.error("Unable to update report status");
       } else {
-        setReports((prev) =>
-          prev.map((report) => (report.id === reportId ? { ...report, status } : report))
-        );
+        setReports((prev) => prev.map((report) => (report.id === reportId ? { ...report, status } : report)));
         setSelectedReport((prev) => (prev && prev.id === reportId ? { ...prev, status } : prev));
         toast.success(`Report marked as ${status}`);
       }
@@ -696,9 +713,10 @@ const AdminReports = () => {
       const typeMatches = filter === "all" ? true : report.target_type === filter;
       const statusMatches =
         statusFilter === "all" ? true : report.status.toLowerCase() === statusFilter;
-      return typeMatches && statusMatches;
+      const userMatches = filteredUserId ? report.target_id === filteredUserId : true;
+      return typeMatches && statusMatches && userMatches;
     });
-  }, [reports, filter, statusFilter]);
+  }, [reports, filter, statusFilter, filteredUserId]);
 
   const canLoadMore = reports.length === pageSize * page;
 
@@ -758,6 +776,25 @@ const AdminReports = () => {
               </Button>
             ))}
             <div className="h-8 w-px bg-border/60" aria-hidden />
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Date</span>
+              <div className="flex rounded-md border border-border/70 overflow-hidden">
+                {(["24h", "7d", "30d", "all"] as const).map((range) => (
+                  <Button
+                    key={range}
+                    variant={dateRange === range ? "ocean" : "ghost"}
+                    size="sm"
+                    className="rounded-none"
+                    onClick={() => {
+                      setDateRange(range);
+                      setPage(1);
+                    }}
+                  >
+                    {range === "24h" ? "24h" : range === "7d" ? "7 days" : range === "30d" ? "30 days" : "All"}
+                  </Button>
+                ))}
+              </div>
+            </div>
             {(["all", "open", "resolved", "dismissed"] as const).map((status) => (
               <Button
                 key={status}
@@ -849,9 +886,22 @@ const AdminReports = () => {
                         <Badge variant="secondary" className="uppercase tracking-wide">
                           {report.target_type}
                         </Badge>
-                        <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusBadgeVariants[report.status]}`}>
-                          {report.status.toUpperCase()}
-                        </span>
+                        <Select
+                          value={report.status}
+                          onValueChange={(value) => handleUpdateStatus(report.id, value as ReportStatus)}
+                          disabled={isStatusUpdating}
+                        >
+                          <SelectTrigger className="w-[150px] h-8">
+                            <SelectValue placeholder={report.status} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {(["open", "resolved", "dismissed"] as const).map((status) => (
+                              <SelectItem key={status} value={status}>
+                                {status.charAt(0).toUpperCase() + status.slice(1)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                         <span className="text-xs text-muted-foreground">·</span>
                         <span className="text-xs text-muted-foreground">
                           {formatRelative(report.created_at)}

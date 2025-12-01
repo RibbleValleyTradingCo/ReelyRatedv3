@@ -33,6 +33,7 @@ interface LogRow {
   action: string;
   target_type: string;
   target_id: string;
+  user_id?: string;
   reason: string;
   details: Record<string, unknown> | null;
   created_at: string;
@@ -42,12 +43,15 @@ interface LogRow {
 interface ModerationLogFetchRow {
   id: string;
   action: string;
+  target_type: string | null;
+  target_id: string | null;
   user_id: string | null;
   catch_id: string | null;
   comment_id: string | null;
   metadata: Record<string, unknown> | null;
   created_at: string;
-  admin: AdminProfileSummary | null;
+  admin_id: string | null;
+  admin_username: string | null;
 }
 
 const formatRelative = (value: string) => formatDistanceToNow(new Date(value), { addSuffix: true });
@@ -102,20 +106,16 @@ const AdminAuditLog = () => {
 
     const since = range ? new Date(Date.now() - range * 24 * 60 * 60 * 1000).toISOString() : null;
 
-    let query = supabase
-      .from("moderation_log")
-      .select("id, action, user_id, catch_id, comment_id, metadata, created_at, admin:admin_id (id, username)")
-      .order("created_at", { ascending: sortDirection === "asc" });
-
-    if (since) {
-      query = query.gte("created_at", since);
-    }
-
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize - 1;
-    query = query.range(from, to);
-
-    const { data, error } = await query;
+    const { data, error } = await supabase.rpc("admin_list_moderation_log", {
+      p_user_id: null,
+      p_action: actionFilter === "all" ? null : actionFilter,
+      p_search: searchTerm.trim() === "" ? null : searchTerm.trim(),
+      p_from: since,
+      p_to: null,
+      p_sort_direction: sortDirection,
+      p_limit: pageSize,
+      p_offset: (page - 1) * pageSize,
+    });
 
     if (error) {
       toast.error("Unable to load moderation log");
@@ -126,21 +126,26 @@ const AdminAuditLog = () => {
     const rows = (data ?? []) as ModerationLogFetchRow[];
     const normalized = rows.map((row) => {
       const metadata = row.metadata ?? null;
-      const reason = metadata && typeof metadata["reason"] === "string"
-        ? (metadata["reason"] as string)
-        : "No reason provided";
-      const targetType = row.comment_id ? "comment" : row.catch_id ? "catch" : row.user_id ? "user" : "unknown";
-      const targetId = row.comment_id ?? row.catch_id ?? row.user_id ?? "";
+      const reason =
+        metadata && typeof metadata["reason"] === "string" ? (metadata["reason"] as string) : "No reason provided";
+      const targetType =
+        row.target_type ??
+        (row.comment_id ? "comment" : row.catch_id ? "catch" : row.user_id ? "user" : "unknown");
+      const targetId = row.target_id ?? row.comment_id ?? row.catch_id ?? row.user_id ?? "";
 
       return {
         id: row.id,
         action: row.action,
         target_type: targetType,
         target_id: targetId,
+        user_id: row.user_id ?? undefined,
         reason,
         details: metadata,
         created_at: row.created_at,
-        admin: row.admin ?? null,
+        admin:
+          row.admin_id || row.admin_username
+            ? { id: row.admin_id, username: row.admin_username }
+            : null,
       } satisfies LogRow;
     });
 
