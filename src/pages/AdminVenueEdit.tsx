@@ -16,6 +16,7 @@ type Venue = {
   slug: string;
   name: string;
   location: string | null;
+  description: string | null;
   short_tagline: string | null;
   ticket_type: string | null;
   price_from: string | null;
@@ -53,6 +54,7 @@ const AdminVenueEdit = () => {
   const [venue, setVenue] = useState<Venue | null>(null);
   const [form, setForm] = useState({
     short_tagline: "",
+    description: "",
     ticket_type: "",
     price_from: "",
     best_for_tags: "",
@@ -117,6 +119,7 @@ const AdminVenueEdit = () => {
       setVenue(row);
       setForm({
         short_tagline: row?.short_tagline ?? "",
+        description: row?.description ?? "",
         ticket_type: row?.ticket_type ?? "",
         price_from: row?.price_from ?? "",
         best_for_tags: (row?.best_for_tags ?? []).join(", "),
@@ -185,9 +188,10 @@ const AdminVenueEdit = () => {
   const handleSave = async () => {
     if (!venue?.id) return;
     setSaving(true);
-    const { error } = await supabase.rpc("admin_update_venue_metadata", {
+    const { data, error } = await supabase.rpc("admin_update_venue_metadata", {
       p_venue_id: venue.id,
       p_short_tagline: form.short_tagline || null,
+      p_description: form.description || null,
       p_ticket_type: form.ticket_type || null,
       p_price_from: form.price_from || null,
       p_best_for_tags: parseCsv(form.best_for_tags),
@@ -202,6 +206,7 @@ const AdminVenueEdit = () => {
       toast.error("Failed to save changes");
     } else {
       toast.success("Venue updated");
+      console.log("Admin updated venue metadata, returned row:", data);
       // refresh
       const { data } = await supabase.rpc("get_venue_by_slug", { p_slug: slug });
       const row = (data as Venue[] | null)?.[0] ?? null;
@@ -463,6 +468,15 @@ const AdminVenueEdit = () => {
                   value={form.short_tagline}
                   onChange={(e) => setForm((prev) => ({ ...prev, short_tagline: e.target.value }))}
                   placeholder="Big carp day-ticket venue with 3 main lakes"
+                />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <label className="text-sm font-semibold text-slate-800">Description</label>
+                <Textarea
+                  value={form.description}
+                  onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
+                  rows={4}
+                  placeholder="Brief description of the venue"
                 />
               </div>
               <div className="space-y-2">
