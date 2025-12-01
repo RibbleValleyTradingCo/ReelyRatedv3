@@ -131,7 +131,7 @@ const AdminVenueEdit = () => {
     const loadEvents = async () => {
       if (!venue?.id) return;
       setEventsLoading(true);
-      const { data, error } = await supabase.rpc("get_venue_upcoming_events", {
+      const { data, error } = await supabase.rpc("admin_get_venue_events", {
         p_venue_id: venue.id,
       });
       if (error) {
@@ -270,6 +270,13 @@ const AdminVenueEdit = () => {
     setEventSaving(false);
   };
 
+  const classifyEventStatus = (event: VenueEvent) => {
+    if (!event.is_published) return "draft";
+    const now = new Date();
+    const starts = new Date(event.starts_at);
+    return starts >= now ? "upcoming" : "past";
+  };
+
   const handleDeleteEvent = async (eventId: string) => {
     if (!eventId) return;
     const confirmed = window.confirm("Delete this event?");
@@ -282,7 +289,7 @@ const AdminVenueEdit = () => {
     }
     toast.success("Event deleted");
     if (venue?.id) {
-      const { data: refreshed } = await supabase.rpc("get_venue_upcoming_events", { p_venue_id: venue.id });
+      const { data: refreshed } = await supabase.rpc("admin_get_venue_events", { p_venue_id: venue.id });
       setEvents((refreshed as VenueEvent[]) ?? []);
     }
     if (eventForm.id === eventId) {
@@ -551,7 +558,7 @@ const AdminVenueEdit = () => {
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-slate-800">Upcoming events</h3>
+                <h3 className="text-sm font-semibold text-slate-800">All events</h3>
                 {eventsLoading ? (
                   <span className="text-xs text-slate-500">Loading…</span>
                 ) : (
@@ -565,44 +572,53 @@ const AdminVenueEdit = () => {
                 </div>
               ) : events.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-slate-200 bg-white p-4 text-sm text-slate-600">
-                  No upcoming events.
+                  No events yet.
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {events.map((event) => (
-                    <div
-                      key={event.id}
-                      className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3"
-                    >
-                      <div className="space-y-1">
-                        <p className="text-sm font-semibold text-slate-900">{event.title}</p>
-                        <p className="text-xs text-slate-600">
-                          {new Date(event.starts_at).toLocaleString()} {event.event_type ? `• ${event.event_type}` : ""}
-                        </p>
-                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${event.is_published ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>
-                          {event.is_published ? "Published" : "Unpublished"}
-                        </span>
+                  {events.map((event) => {
+                    const status = classifyEventStatus(event);
+                    const statusStyle =
+                      status === "draft"
+                        ? "bg-amber-100 text-amber-800"
+                        : status === "upcoming"
+                        ? "bg-emerald-100 text-emerald-800"
+                        : "bg-slate-100 text-slate-700";
+                    return (
+                      <div
+                        key={event.id}
+                        className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3"
+                      >
+                        <div className="space-y-1">
+                          <p className="text-sm font-semibold text-slate-900">{event.title}</p>
+                          <p className="text-xs text-slate-600">
+                            {new Date(event.starts_at).toLocaleString()} {event.event_type ? `• ${event.event_type}` : ""}
+                          </p>
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusStyle}`}>
+                            {status === "draft" ? "Draft" : status === "upcoming" ? "Upcoming" : "Past"}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="rounded-full"
+                            onClick={() => handleEditEvent(event)}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="rounded-full text-red-600 hover:text-red-700"
+                            onClick={() => handleDeleteEvent(event.id)}
+                          >
+                            Delete
+                          </Button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="rounded-full"
-                          onClick={() => handleEditEvent(event)}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="rounded-full text-red-600 hover:text-red-700"
-                          onClick={() => handleDeleteEvent(event.id)}
-                        >
-                          Delete
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

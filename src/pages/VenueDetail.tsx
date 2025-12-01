@@ -115,6 +115,11 @@ const VenueDetail = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [upcomingEvents, setUpcomingEvents] = useState<VenueEvent[]>([]);
   const [eventsLoading, setEventsLoading] = useState(false);
+  const [pastEvents, setPastEvents] = useState<VenueEvent[]>([]);
+  const [pastEventsLoading, setPastEventsLoading] = useState(false);
+  const [pastOffset, setPastOffset] = useState(0);
+  const [pastHasMore, setPastHasMore] = useState(true);
+  const [eventsTab, setEventsTab] = useState<"upcoming" | "past">("upcoming");
 
   useEffect(() => {
     const loadVenue = async () => {
@@ -195,12 +200,34 @@ const VenueDetail = () => {
     setEventsLoading(false);
   };
 
+  const loadPastEvents = async (venueId: string, nextOffset = 0, append = false) => {
+    setPastEventsLoading(true);
+    const limit = 10;
+    const { data, error } = await supabase.rpc("get_venue_past_events", {
+      p_venue_id: venueId,
+      p_limit: limit,
+      p_offset: nextOffset,
+    });
+    if (error) {
+      console.error("Failed to load past events", error);
+      if (!append) setPastEvents([]);
+      setPastHasMore(false);
+    } else {
+      const fetched = (data as VenueEvent[]) ?? [];
+      setPastEvents(append ? [...pastEvents, ...fetched] : fetched);
+      setPastHasMore(fetched.length === limit);
+      setPastOffset(nextOffset + fetched.length);
+    }
+    setPastEventsLoading(false);
+  };
+
   useEffect(() => {
     if (venue?.id) {
       void loadTopCatches(venue.id);
       void loadTopAnglers(venue.id);
       void loadRecentCatches(venue.id, 0, false);
       void loadUpcomingEvents(venue.id);
+      void loadPastEvents(venue.id, 0, false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [venue?.id]);
@@ -473,21 +500,92 @@ const VenueDetail = () => {
         <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="space-y-1">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Venue updates</p>
-            <h2 className="text-xl font-semibold text-slate-900">Upcoming events</h2>
+            <h2 className="text-xl font-semibold text-slate-900">Events & announcements</h2>
             <p className="text-sm text-slate-600">Matches, open days, and announcements from this venue.</p>
           </div>
-          {eventsLoading ? (
+          <div className="inline-flex rounded-full border border-slate-200 bg-slate-100 p-1 text-sm font-semibold text-slate-700">
+            <button
+              type="button"
+              className={`rounded-full px-3 py-1 ${eventsTab === "upcoming" ? "bg-white shadow-sm" : ""}`}
+              onClick={() => setEventsTab("upcoming")}
+            >
+              Upcoming
+            </button>
+            <button
+              type="button"
+              className={`rounded-full px-3 py-1 ${eventsTab === "past" ? "bg-white shadow-sm" : ""}`}
+              onClick={() => setEventsTab("past")}
+            >
+              Past
+            </button>
+          </div>
+
+          {eventsTab === "upcoming" ? (
+            eventsLoading ? (
+              <div className="flex items-center justify-center rounded-xl border border-slate-200 bg-white p-5 text-slate-500">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Loading events…
+              </div>
+            ) : upcomingEvents.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-slate-200 bg-white p-5 text-sm text-slate-600">
+                No upcoming events — check back soon.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {upcomingEvents.map((event) => (
+                  <Card key={event.id} className="border border-slate-200 bg-white shadow-sm">
+                    <CardContent className="space-y-2 p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="space-y-1">
+                          <p className="text-sm font-semibold text-slate-900">{event.title}</p>
+                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            {formatEventDate(event.starts_at, event.ends_at)}
+                          </p>
+                        </div>
+                        {event.event_type ? (
+                          <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-700">
+                            {event.event_type}
+                          </span>
+                        ) : null}
+                      </div>
+                      {event.description ? (
+                        <p className="text-sm text-slate-600 line-clamp-3">{event.description}</p>
+                      ) : null}
+                      {event.ticket_info ? (
+                        <p className="text-xs font-semibold text-slate-700">Tickets: {event.ticket_info}</p>
+                      ) : null}
+                      <div className="flex flex-wrap items-center gap-3">
+                        {event.booking_url ? (
+                          <Button asChild size="sm" variant="outline" className="rounded-full">
+                            <a href={event.booking_url} target="_blank" rel="noreferrer">
+                              Book now
+                            </a>
+                          </Button>
+                        ) : event.website_url ? (
+                          <Button asChild size="sm" variant="outline" className="rounded-full">
+                            <a href={event.website_url} target="_blank" rel="noreferrer">
+                              More details
+                            </a>
+                          </Button>
+                        ) : null}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )
+          ) : pastEventsLoading ? (
             <div className="flex items-center justify-center rounded-xl border border-slate-200 bg-white p-5 text-slate-500">
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Loading events…
+              Loading past events…
             </div>
-          ) : upcomingEvents.length === 0 ? (
+          ) : pastEvents.length === 0 ? (
             <div className="rounded-xl border border-dashed border-slate-200 bg-white p-5 text-sm text-slate-600">
-              No upcoming events — check back soon.
+              No past events yet.
             </div>
           ) : (
             <div className="space-y-3">
-              {upcomingEvents.map((event) => (
+              {pastEvents.map((event) => (
                 <Card key={event.id} className="border border-slate-200 bg-white shadow-sm">
                   <CardContent className="space-y-2 p-4">
                     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -504,10 +602,10 @@ const VenueDetail = () => {
                       ) : null}
                     </div>
                     {event.description ? (
-                      <p className="text-sm text-slate-600 line-clamp-3">{event.description}</p>
+                      <p className="text-sm text-slate-500 line-clamp-3">{event.description}</p>
                     ) : null}
                     {event.ticket_info ? (
-                      <p className="text-xs font-semibold text-slate-700">Tickets: {event.ticket_info}</p>
+                      <p className="text-xs font-semibold text-slate-600">Tickets: {event.ticket_info}</p>
                     ) : null}
                     <div className="flex flex-wrap items-center gap-3">
                       {event.booking_url ? (
@@ -527,6 +625,26 @@ const VenueDetail = () => {
                   </CardContent>
                 </Card>
               ))}
+              {pastHasMore ? (
+                <div className="flex justify-center">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-full px-4"
+                    disabled={pastEventsLoading}
+                    onClick={() => venue && void loadPastEvents(venue.id, pastOffset, true)}
+                  >
+                    {pastEventsLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Loading…
+                      </>
+                    ) : (
+                      "Load more past events"
+                    )}
+                  </Button>
+                </div>
+              ) : null}
             </div>
           )}
         </section>
