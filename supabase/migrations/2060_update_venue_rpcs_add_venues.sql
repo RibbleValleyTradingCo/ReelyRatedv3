@@ -287,7 +287,7 @@ AS $$
     vs.total_catches,
     vs.recent_catches_30d,
     vs.headline_pb_weight,
-    vs.headline_pb_unit,
+    vs.headline_pb_unit::public.weight_unit,
     vs.headline_pb_species,
     vs.top_species
   FROM public.venues v
@@ -333,7 +333,7 @@ AS $$
     vs.total_catches,
     vs.recent_catches_30d,
     vs.headline_pb_weight,
-    vs.headline_pb_unit,
+    vs.headline_pb_unit::public.weight_unit,
     vs.headline_pb_species,
     vs.top_species
   FROM public.venues v
