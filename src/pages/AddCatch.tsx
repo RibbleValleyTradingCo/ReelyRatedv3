@@ -1,6 +1,6 @@
 import { useState, useEffect, type ReactNode } from "react";
 import { Fish, MapPin, Target, MessageSquare, SunMedium, Images, Tag } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
 import { Navbar } from "@/components/Navbar";
@@ -128,6 +128,7 @@ const SectionBlock = ({
 const AddCatch = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Rate limiting: max 10 catches per hour
@@ -198,6 +199,26 @@ const AddCatch = () => {
     date: new Date().toISOString().split("T")[0],
     notes: "",
   });
+  const [prefilledVenue, setPrefilledVenue] = useState<{ id: string; name: string } | null>(null);
+
+  useEffect(() => {
+    const slug = searchParams.get("venue");
+    if (!slug) return;
+    const loadVenueFromSlug = async () => {
+      const { data, error } = await supabase.from("venues").select("id,name").eq("slug", slug).maybeSingle();
+      if (error || !data) return;
+      setPrefilledVenue({ id: data.id, name: data.name });
+      setFormData((prev) => ({
+        ...prev,
+        location: data.name,
+      }));
+      setNewSession((prev) => ({
+        ...prev,
+        venue: prev.venue || data.name,
+      }));
+    };
+    void loadVenueFromSlug();
+  }, [searchParams]);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -479,7 +500,9 @@ const AddCatch = () => {
     const isKnownFishery = normalizedLocation ? UK_FISHERIES.includes(normalizedLocation) : false;
     let venueId: string | null = null;
 
-    if (isKnownFishery) {
+    if (prefilledVenue && prefilledVenue.name === finalLocation) {
+      venueId = prefilledVenue.id;
+    } else if (isKnownFishery) {
       const { data: venueRow } = await supabase
         .from("venues")
         .select("id")

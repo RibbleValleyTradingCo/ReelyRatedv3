@@ -426,8 +426,8 @@ const Feed = () => {
 
         {venueSlug ? (
           <Card className="mb-6 border-primary/30 bg-primary/5">
-            <CardContent className="flex flex-wrap items-start justify-between gap-3">
-              <div className="space-y-1">
+            <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
+              <div className="space-y-2">
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">Venue filter</p>
                 <h2 className="text-lg font-semibold text-slate-900">
                   Catches from {venueFilter?.name ?? venueSlug}

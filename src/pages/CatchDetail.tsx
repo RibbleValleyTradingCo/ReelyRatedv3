@@ -59,6 +59,7 @@ import { useSearchParams } from "react-router-dom";
 
 const CatchDetail = () => {
   const { id } = useParams();
+  const catchId = id === "new" ? undefined : id;
   const [searchParams] = useSearchParams();
   const targetCommentId = searchParams.get("commentId");
   const { user } = useAuthUser();
@@ -91,7 +92,7 @@ const CatchDetail = () => {
     fetchReactions,
     fetchRatings,
   } = useCatchData({
-    catchId: id,
+    catchId,
     userId: user?.id,
   });
 
@@ -109,7 +110,7 @@ const CatchDetail = () => {
     ratingLoading,
     catchUrl,
   } = useCatchInteractions({
-    catchId: id,
+    catchId,
     catchData,
     userId: user?.id,
     userEmail: user?.email,
@@ -131,6 +132,12 @@ const CatchDetail = () => {
     shareCardRef,
     fetchRatings,
   });
+
+  useEffect(() => {
+    if (id === "new") {
+      navigate("/add-catch");
+    }
+  }, [id, navigate]);
 
   useEffect(() => {
     let active = true;

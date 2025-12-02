@@ -10,14 +10,14 @@ import { isAdminUser } from "@/lib/admin";
 import LogoMark from "@/components/LogoMark";
 import { MobileMenu, MOBILE_MENU_ID } from "@/components/MobileMenu";
 import { cn } from "@/lib/utils";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  Command,
+  CommandGroup,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+} from "@/components/ui/command";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { resolveAvatarUrl } from "@/lib/storage";
 import { getProfilePath } from "@/lib/profile";
@@ -27,6 +27,7 @@ export const Navbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
   const [profileUsername, setProfileUsername] = useState<string | null>(null);
   const [avatarPath, setAvatarPath] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -35,6 +36,7 @@ export const Navbar = () => {
 
   useEffect(() => {
     setMenuOpen(false);
+    setAvatarMenuOpen(false);
   }, [location.pathname]);
 
   useEffect(() => {
@@ -152,8 +154,8 @@ export const Navbar = () => {
 
       <NotificationsBell buttonClassName="h-10 w-10 sm:h-11 sm:w-11 rounded-xl" />
 
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
+      <Popover open={avatarMenuOpen} onOpenChange={setAvatarMenuOpen}>
+        <PopoverTrigger asChild>
           <button
             type="button"
             className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-white"
@@ -171,39 +173,88 @@ export const Navbar = () => {
               </AvatarFallback>
             </Avatar>
           </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="min-w-[220px]">
-          <DropdownMenuLabel>
-            Signed in as
-            <span className="block text-sm font-semibold text-foreground">{avatarDisplayName || "Angler"}</span>
-          </DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={() => navigate(profileLink)}>
-            View profile
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => navigate("/settings/profile")}>
-            Profile settings
-          </DropdownMenuItem>
-          {isAdmin ? (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel>Admin</DropdownMenuLabel>
-              <DropdownMenuItem onSelect={() => navigate("/admin/reports")}>Admin reports</DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => navigate("/admin/audit-log")}>Audit log</DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => navigate("/admin/venues")}>Manage venues</DropdownMenuItem>
-            </>
-          ) : null}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onSelect={(event) => {
-              event.preventDefault();
-              void handleSignOut();
-            }}
-          >
-            Sign out
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+        </PopoverTrigger>
+        <PopoverContent
+          align="end"
+          className="w-64 rounded-xl border border-border/60 bg-background p-0 shadow-lg"
+        >
+          <Command>
+            <CommandList className="max-h-[min(75vh,340px)] overflow-y-auto">
+              <div className="border-b border-border/60 px-4 py-2">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Signed in as</p>
+                <p className="truncate text-sm font-semibold text-foreground">{avatarDisplayName || "Angler"}</p>
+              </div>
+              <CommandGroup>
+                <CommandItem
+                  className="px-4 py-2"
+                  onSelect={() => {
+                    navigate(profileLink);
+                    setAvatarMenuOpen(false);
+                  }}
+                >
+                  View profile
+                </CommandItem>
+                <CommandItem
+                  className="px-4 py-2"
+                  onSelect={() => {
+                    navigate("/settings/profile");
+                    setAvatarMenuOpen(false);
+                  }}
+                >
+                  Profile settings
+                </CommandItem>
+              </CommandGroup>
+              {isAdmin ? (
+                <>
+                  <CommandSeparator />
+                  <CommandGroup heading="Admin">
+                    <CommandItem
+                      className="px-4 py-2"
+                      onSelect={() => {
+                        navigate("/admin/reports");
+                        setAvatarMenuOpen(false);
+                      }}
+                    >
+                      Admin reports
+                    </CommandItem>
+                    <CommandItem
+                      className="px-4 py-2"
+                      onSelect={() => {
+                        navigate("/admin/audit-log");
+                        setAvatarMenuOpen(false);
+                      }}
+                    >
+                      Audit log
+                    </CommandItem>
+                    <CommandItem
+                      className="px-4 py-2"
+                      onSelect={() => {
+                        navigate("/admin/venues");
+                        setAvatarMenuOpen(false);
+                      }}
+                    >
+                      Manage venues
+                    </CommandItem>
+                  </CommandGroup>
+                </>
+              ) : null}
+              <CommandSeparator />
+              <CommandGroup>
+                <CommandItem
+                  className="px-4 py-2"
+                  onSelect={(event) => {
+                    event.preventDefault();
+                    void handleSignOut();
+                    setAvatarMenuOpen(false);
+                  }}
+                >
+                  Sign out
+                </CommandItem>
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
 
       <button
         type="button"
