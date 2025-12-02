@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ExternalLink, Loader2, MapPin, Sparkles, Fish, Star } from "lucide-react";
+import { ExternalLink, Loader2, MapPin, Sparkles, Fish, Star, Flame } from "lucide-react";
 import { CatchCard } from "@/components/feed/CatchCard";
 import { isAdminUser } from "@/lib/admin";
 import { useAuth } from "@/components/AuthProvider";
@@ -464,8 +464,6 @@ const VenueDetail = () => {
   const featuredCatch = topCatches[0];
   const humanizeSpecies = (species?: string | null) =>
     species ? species.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "Species unknown";
-  const topSpeciesLabel =
-    venue.top_species && venue.top_species.length > 0 ? humanizeSpecies(venue.top_species[0]) : "Not enough data yet";
   const heroTagline =
     venue.short_tagline ||
     (venue.description ? `${venue.description.split(". ").slice(0, 2).join(". ")}${venue.description.includes(".") ? "." : ""}` : "") ||
@@ -491,507 +489,541 @@ const VenueDetail = () => {
   const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venue.name)}`;
   const hasRatings = (ratingCount ?? 0) > 0;
   const formattedAvg = avgRating ? Number(avgRating).toFixed(1) : null;
+  const ratingSummary = hasRatings && formattedAvg ? (
+    <div className="flex items-center gap-2 text-xs font-semibold text-slate-200">
+      <span>{formattedAvg}</span>
+      <Star className="h-3.5 w-3.5 fill-amber-300 text-amber-300" />
+      <span className="text-[11px] font-normal text-slate-200/80">({ratingCount})</span>
+    </div>
+  ) : (
+    <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-200/80">No ratings yet</span>
+  );
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted">
       <Navbar />
       <main className="section-container space-y-5 pb-12 pt-8 md:pt-10">
         <div className="grid gap-4 md:grid-cols-[minmax(0,1.4fr)_minmax(320px,1fr)] md:items-start">
-          <div className="overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 text-white shadow-lg">
-            <div className="flex flex-col gap-5 p-6 md:p-7">
-              <div className="space-y-3 md:max-w-2xl">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-200">
-                  <Link to="/venues" className="hover:underline">
-                    Venues
-                  </Link>{" "}
-                  / <span className="text-sky-300">{venue.name}</span>
-                </p>
-                <h1 className="text-3xl font-bold leading-tight md:text-4xl">{venue.name}</h1>
-                <div className="flex flex-wrap items-center gap-2 text-sm text-slate-100">
-                  {venue.location ? (
-                    <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1">
-                      <MapPin className="h-4 w-4 text-slate-200" />
-                      <span>{venue.location}</span>
-                    </span>
-                  ) : null}
-                </div>
-                <p className="max-w-3xl text-sm text-slate-100/80">{heroTagline}</p>
-                <div className="space-y-2 rounded-xl bg-white/5 p-3 text-sm text-slate-100/90 ring-1 ring-white/10">
-                  <div className="flex flex-col gap-1">
-                    {hasRatings ? (
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Star className="h-4 w-4 fill-amber-300 text-amber-300" />
-                        <span className="text-sm font-semibold text-white">{formattedAvg}</span>
-                        <span className="text-xs text-slate-200/80">Rated by {ratingCount} angler{(ratingCount ?? 0) === 1 ? "" : "s"} on ReelyRated</span>
-                      </div>
-                    ) : (
-                      <p className="text-xs text-slate-200/80">No ratings yet. Be the first to rate this venue.</p>
-                    )}
-                  </div>
-                  {user ? (
-                    <div className="flex flex-col gap-1">
-                      <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-200/90">Your rating</span>
-                      <div className="flex items-center gap-2">
-                        <StarRating value={userRating} onSelect={handleRatingSelect} disabled={ratingLoading} />
-                        {userRating ? (
-                          <span className="text-xs text-slate-200/80">You rated this {userRating} star{userRating === 1 ? "" : "s"}</span>
-                        ) : (
-                          <span className="text-xs text-slate-200/80">Tap a star to leave your rating</span>
-                        )}
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="text-xs text-slate-200/80">
-                      <Link to="/auth" className="underline hover:text-white">
-                        Log in
+          <div className="space-y-3">
+            <div className="overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 text-white shadow-lg">
+              <div className="flex flex-col gap-5 p-6 md:p-7">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="space-y-3 md:max-w-2xl">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-200">
+                      <Link to="/venues" className="hover:underline">
+                        Venues
                       </Link>{" "}
-                      to rate this venue.
+                      / <span className="text-sky-300">{venue.name}</span>
                     </p>
+                    <h1 className="text-3xl font-bold leading-tight md:text-4xl">{venue.name}</h1>
+                    <div className="flex flex-wrap items-center gap-2 text-sm text-slate-100">
+                      {venue.location ? (
+                        <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1">
+                          <MapPin className="h-4 w-4 text-slate-200" />
+                          <span>{venue.location}</span>
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="max-w-3xl text-sm text-slate-100/80">{heroTagline}</p>
+                    <div className="flex flex-col gap-2 rounded-xl bg-white/5 p-3 text-xs text-slate-200/80 ring-1 ring-white/10">
+                      <div>{ratingSummary}</div>
+                      {user ? (
+                        <div className="flex flex-col gap-1">
+                          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-200/90">Your rating</span>
+                          <div className="flex items-center gap-2">
+                            <StarRating value={userRating} onSelect={handleRatingSelect} disabled={ratingLoading} />
+                            {userRating ? (
+                              <span className="text-[11px] text-slate-200/80">You rated this {userRating} star{userRating === 1 ? "" : "s"}</span>
+                            ) : (
+                              <span className="text-[11px] text-slate-200/80">Tap a star to leave your rating</span>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-[11px] text-slate-200/80">
+                          <Link to="/auth" className="underline hover:text-white">
+                            Log in
+                          </Link>{" "}
+                          to rate this venue.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  {(isAdmin || isOwner) && (
+                    <div className="pt-1">
+                      {isAdmin ? (
+                        <Button asChild variant="outline" size="sm" className="text-xs font-semibold">
+                          <Link to={`/admin/venues/${venue.slug}`}>Edit venue</Link>
+                        </Button>
+                      ) : (
+                        <Button asChild variant="outline" size="sm" className="text-xs font-semibold">
+                          <Link to={`/my/venues/${venue.slug}`}>Manage venue</Link>
+                        </Button>
+                      )}
+                    </div>
                   )}
                 </div>
-                <div className="flex flex-wrap items-center gap-3 pt-1">
-                  <Button asChild size="sm" className="h-9 rounded-full px-4 text-xs font-semibold shadow-md">
-                    <a href={mapsUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1">
-                      View on maps
-                      <ExternalLink className="h-3.5 w-3.5" />
-                    </a>
-                  </Button>
-                  {websiteUrl ? (
-                    <Button
-                      asChild
-                      variant="outline"
-                      size="sm"
-                      className="h-9 rounded-full border border-white/60 bg-white/10 px-4 text-xs font-semibold text-white hover:bg-white/20"
-                    >
-                      <a href={websiteUrl} target="_blank" rel="noreferrer">
-                        Visit website
-                      </a>
-                    </Button>
-                  ) : null}
-                  {bookingUrl ? (
-                    <Button
-                      asChild
-                      variant="outline"
-                      size="sm"
-                      className="h-9 rounded-full border border-white/60 bg-white/10 px-4 text-xs font-semibold text-white hover:bg-white/20"
-                    >
-                      <a href={bookingUrl} target="_blank" rel="noreferrer">
-                        Book now
-                      </a>
-                    </Button>
-                  ) : null}
-                  {contactPhone ? (
-                    <Button
-                      asChild
-                      variant="ghost"
-                      size="sm"
-                      className="h-9 rounded-full border border-white/20 bg-white/5 px-3 text-xs font-semibold text-white hover:bg-white/15"
-                    >
-                      <a href={`tel:${contactPhone}`}>Call</a>
-                    </Button>
-                  ) : null}
-                  <Button
-                    asChild
-                    variant="ghost"
-                    size="sm"
-                    className="h-9 rounded-full border border-white/20 bg-white/5 px-3 text-xs font-semibold text-white hover:bg-white/15"
-                  >
-                    <Link to="/venues">Back to venues</Link>
-                  </Button>
-                  {isAdmin ? (
-                    <Button
-                      asChild
-                      variant="ghost"
-                      size="sm"
-                      className="h-9 rounded-full border border-white/20 bg-white/5 px-3 text-xs font-semibold text-white hover:bg-white/15"
-                    >
-                      <Link to={`/admin/venues/${venue.slug}`}>Edit venue</Link>
-                    </Button>
-                  ) : isOwner ? (
-                    <Button
-                      asChild
-                      variant="ghost"
-                      size="sm"
-                      className="h-9 rounded-full border border-white/20 bg-white/5 px-3 text-xs font-semibold text-white hover:bg-white/15"
-                    >
-                      <Link to={`/my/venues/${venue.slug}`}>Manage venue</Link>
-                    </Button>
-                  ) : null}
-                  {user ? (
-                    <Button
-                      asChild
-                      variant="secondary"
-                      size="sm"
-                      className="h-9 rounded-full px-4 text-xs font-semibold"
-                    >
-                      <Link to={`/add-catch${venue.slug ? `?venue=${venue.slug}` : ""}`}>Log a catch here</Link>
-                    </Button>
-                  ) : null}
-                </div>
               </div>
             </div>
-          </div>
-          <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/5 shadow-lg">
-            {heroImage ? (
-              <img
-                src={heroImage}
-                alt={`${venue.name} hero`}
-                className="h-48 w-full object-cover sm:h-56 md:h-64"
-              />
-            ) : (
-              <div className="flex h-48 items-center justify-center bg-gradient-to-br from-slate-800 to-slate-700 text-sm text-slate-200 sm:h-56 md:h-64">
-                Venue photos coming soon
-              </div>
-            )}
-            <div className="border-t border-white/10 bg-white/10 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-white/80">
-              Venue image
-            </div>
-          </div>
-        </div>
 
-        <section className="space-y-2 rounded-2xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">About this venue</p>
-          <h2 className="text-xl font-semibold text-slate-900">About {venue.name}</h2>
-          <p className="max-w-4xl text-sm text-slate-800">{aboutText}</p>
-          {!(venue.description || heroTagline) && (isAdmin || isOwner) ? (
-            <p className="text-xs text-slate-500">Add more information about this venue from the Manage venue page.</p>
-          ) : null}
-        </section>
-
-        <div className="grid gap-4 md:grid-cols-3">
-          <Card className="border border-slate-200 bg-white shadow-sm">
-            <CardContent className="space-y-2 p-4">
-              <div className="inline-flex items-center gap-2 rounded-full bg-primary/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-primary">
-                <Sparkles className="h-3.5 w-3.5" />
-                Catches logged
-              </div>
-              <p className="text-3xl font-bold text-slate-900">{totalCatches}</p>
-              <p className="text-sm text-slate-600">{totalCatches > 0 ? "Total catches on ReelyRated" : "No catches logged yet"}</p>
-            </CardContent>
-          </Card>
-          <Card className="border border-slate-200 bg-white shadow-sm">
-            <CardContent className="space-y-2 p-4">
-              <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-700">
-                <Sparkles className="h-3.5 w-3.5" />
-                Last 30 days
-              </div>
-              <p className="text-3xl font-bold text-slate-900">{recentWindow}</p>
-              <p className="text-sm text-slate-600">
-                {recentWindow > 0 ? "Catches in the last 30 days" : "No catches in the last 30 days"}
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="border border-slate-200 bg-white shadow-sm">
-            <CardContent className="space-y-2 p-4">
-              <div className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-700">
-                <Fish className="h-3.5 w-3.5" />
-                Heaviest catch here
-              </div>
-              <p className="text-xl font-semibold text-slate-900">
-                {featuredCatch?.weight
-                  ? `${featuredCatch.weight}${featuredCatch.weight_unit === "kg" ? "kg" : "lb"} ${humanizeSpecies(featuredCatch.species)}`
-                  : "Not enough data yet"}
-              </p>
-              <p className="text-sm text-slate-600">Based on catches logged here</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-0 shadow-sm">
-          <div className="bg-gradient-to-r from-primary/10 to-slate-50 px-6 py-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">Visiting Us</p>
-            <h2 className="text-lg font-semibold text-slate-900">What this place is like</h2>
-          </div>
-          <div className="grid gap-4 p-6 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] md:items-start">
-            <div className="space-y-2">
-              <p className="text-sm text-slate-800">Photos curated by the venue and community.</p>
-              {!(venue.description || heroTagline) && (isAdmin || isOwner) ? (
-                <p className="text-xs text-slate-500">Admins/owners can add details from the Edit / Manage venue page.</p>
+            <div className="rounded-2xl border border-slate-200 bg-white shadow-sm px-4 py-3">
+              <div className="flex flex-wrap items-center gap-2">
+              <Button asChild size="sm" variant="outline" className="text-sm font-semibold">
+                <a href={mapsUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1">
+                  View on maps
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </a>
+              </Button>
+              {websiteUrl ? (
+                <Button variant="outline" size="sm" className="text-sm font-semibold" asChild>
+                  <a href={websiteUrl} target="_blank" rel="noreferrer">
+                    Visit website
+                  </a>
+                </Button>
               ) : null}
+              {bookingUrl ? (
+                <Button variant="outline" size="sm" className="text-sm font-semibold" asChild>
+                  <a href={bookingUrl} target="_blank" rel="noreferrer">
+                    Book now
+                  </a>
+                </Button>
+              ) : null}
+              {contactPhone ? (
+                <Button variant="outline" size="sm" className="text-sm font-semibold" asChild>
+                  <a href={`tel:${contactPhone}`}>Call</a>
+                </Button>
+              ) : null}
+              {user ? (
+                <Button asChild variant="default" size="sm" className="px-4 text-sm font-semibold">
+                  <Link to={`/add-catch${venue.slug ? `?venue=${venue.slug}` : ""}`}>Log a catch here</Link>
+                </Button>
+              ) : null}
+              </div>
             </div>
-            <div className="space-y-2">
-              {photosLoading ? (
-                <div className="flex items-center justify-center rounded-xl border border-slate-200 bg-white p-5 text-slate-500">
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Loading photos…
-                </div>
-              ) : photos.length > 0 ? (
-                <div className="flex gap-3 overflow-x-auto pb-2 sm:grid sm:grid-cols-2 sm:gap-3 sm:overflow-visible md:grid-cols-2">
-                  {photos.slice(0, 6).map((photo) => {
-                    const url = getPublicAssetUrl(photo.image_path);
-                    return (
-                      <div key={photo.id} className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50 shadow-sm">
-                        {url ? (
-                          <img src={url} alt={photo.caption ?? "Venue photo"} className="h-40 w-full object-cover" />
-                        ) : (
-                          <div className="flex h-40 items-center justify-center text-sm text-slate-500">No image</div>
-                        )}
-                        {photo.caption ? (
-                          <div className="px-3 py-2 text-xs text-slate-700">{photo.caption}</div>
-                        ) : null}
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : fallbackCatchPhotos.length > 0 ? (
+
+            <section className="space-y-2 rounded-2xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">About this venue</p>
+              <h2 className="text-xl font-semibold text-slate-900">About {venue.name}</h2>
+              <p className="max-w-4xl text-sm text-slate-800">{aboutText}</p>
+              {!(venue.description || heroTagline) && (isAdmin || isOwner) ? (
+                <p className="text-xs text-slate-500">Add more information about this venue from the Manage venue page.</p>
+              ) : null}
+            </section>
+
+            <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-0 shadow-sm">
+              <div className="bg-gradient-to-r from-primary/10 to-slate-50 px-6 py-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">Visiting Us</p>
+                <h2 className="text-lg font-semibold text-slate-900">What this place is like</h2>
+              </div>
+              <div className="grid gap-4 p-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] md:items-start">
                 <div className="space-y-2">
-                  <p className="text-sm text-slate-600">No venue photos yet — showing recent catch photos.</p>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {fallbackCatchPhotos.map((c) => (
-                      <div key={c.id} className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50 shadow-sm">
-                        <img src={c.image_url} alt={c.title} className="h-36 w-full object-cover" />
-                      </div>
-                    ))}
-                  </div>
+                  <p className="text-sm text-slate-800">Photos curated by the venue and community.</p>
+                  {heroTagline ? (
+                    <p className="line-clamp-3 text-sm text-slate-600">{heroTagline}</p>
+                  ) : venue.description ? (
+                    <p className="line-clamp-3 text-sm text-slate-600">{venue.description}</p>
+                  ) : null}
+                  {photos.length === 0 && (isAdmin || isOwner) ? (
+                    <p className="text-xs text-slate-500">Admins/owners can add photos from the Manage venue page.</p>
+                  ) : null}
                 </div>
+                <div>
+                  {photosLoading ? (
+                    <div className="flex items-center justify-center rounded-xl border border-slate-200 bg-white p-5 text-slate-500">
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Loading photos…
+                    </div>
+                  ) : photos.length > 0 ? (
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4 md:grid-cols-2 lg:grid-cols-2">
+                      {photos.slice(0, 4).map((photo) => {
+                        const url = getPublicAssetUrl(photo.image_path);
+                        return (
+                          <div key={photo.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                            {url ? (
+                              <img src={url} alt={`${venue.name} venue photo`} className="aspect-[3/2] h-full w-full object-cover" />
+                            ) : (
+                              <div className="flex aspect-[3/2] items-center justify-center text-sm text-slate-500">No image</div>
+                            )}
+                            {photo.caption ? (
+                              <div className="px-3 py-2 text-xs text-slate-700">{photo.caption}</div>
+                            ) : null}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : fallbackCatchPhotos.length > 0 ? (
+                    <div className="grid grid-cols-2 gap-3 overflow-x-auto pb-2 sm:grid-cols-4 sm:overflow-visible">
+                      {fallbackCatchPhotos.map((c) => (
+                        <div key={c.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                          <img src={c.image_url} alt={c.title} className="aspect-[3/2] h-full w-full object-cover" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5 text-sm text-slate-600">
+                      No photos yet — log a catch to help show this venue off.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </section>
+          </div>
+          <div className="space-y-3 md:space-y-4">
+            <Card className="flex h-full flex-col overflow-hidden border border-slate-200 bg-white shadow-sm">
+              {featuredCatch?.image_url ? (
+                <img
+                  src={featuredCatch.image_url}
+                  alt={featuredCatch.title}
+                  className="h-56 w-full object-cover sm:h-64"
+                />
+              ) : heroImage ? (
+                <img
+                  src={heroImage}
+                  alt={`${venue.name} record`}
+                  className="h-56 w-full object-cover sm:h-64"
+                />
               ) : (
-                <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5 text-sm text-slate-600">
-                  No photos yet. {isOwner || isAdmin ? "Owners can add venue photos from the Manage venue page." : ""}
+                <div className="flex h-48 items-center justify-center bg-gradient-to-br from-slate-800 to-slate-700 text-sm text-slate-200">
+                  No venue record logged yet
                 </div>
               )}
-            </div>
-          </div>
-        </section>
-
-        {(hasPlanContent || isOwner || isAdmin) && (
-          <section className="space-y-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="space-y-1">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Socials &amp; contact</p>
-              <h2 className="text-xl font-semibold text-slate-900">Plan your visit</h2>
-              <p className="text-sm text-slate-600">How to book, who to call, and what to expect on-site.</p>
-            </div>
-            <div className="grid gap-6 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] md:items-start">
-              <div className="space-y-4 rounded-xl border border-slate-100 bg-slate-50 p-4 text-sm text-slate-700">
-                <div className="space-y-1">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Tickets &amp; pricing</p>
-                  {ticketType || displayPriceFrom ? (
-                    <p className="text-base font-semibold text-slate-900">
-                      {ticketType ? `${ticketType}` : ""}
-                      {ticketType && displayPriceFrom ? " • " : ""}
-                      {displayPriceFrom || ""}
-                    </p>
-                  ) : (
-                    <p className="text-sm text-slate-500">Ticket details coming soon.</p>
-                  )}
+              <CardContent className="flex flex-1 flex-col space-y-2 p-4">
+                <div className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-700">
+                  <Fish className="h-3.5 w-3.5" />
+                  Venue record
                 </div>
-                <div className="space-y-1">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Contact</p>
-                  {contactPhone ? (
-                    <p className="font-semibold text-slate-900">Call: {contactPhone}</p>
-                  ) : (
-                    <p className="text-sm text-slate-500">Phone number not provided.</p>
-                  )}
-                </div>
-                <div className="flex flex-wrap items-center gap-3">
-                  {websiteUrl ? (
-                    <Button variant="outline" size="sm" className="rounded-full" asChild>
-                      <a href={websiteUrl} target="_blank" rel="noreferrer">
-                        Visit website
-                      </a>
-                    </Button>
-                  ) : null}
-                  {bookingUrl ? (
-                    <Button variant="outline" size="sm" className="rounded-full" asChild>
-                      <a href={bookingUrl} target="_blank" rel="noreferrer">
-                        Book online
-                      </a>
-                    </Button>
-                  ) : null}
-                </div>
-                {!(ticketType || displayPriceFrom || contactPhone || websiteUrl || bookingUrl) && (isOwner || isAdmin) ? (
-                  <p className="text-xs text-slate-500">Owners can add contact and booking info from Edit / Manage venue.</p>
-                ) : null}
-              </div>
-              <div className="space-y-4">
-                {hasBestFor ? (
-                  <div className="space-y-2 rounded-xl border border-slate-100 bg-white p-4">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Best for</p>
-                    <div className="flex flex-wrap gap-2">
-                      {bestForTags.slice(0, 12).map((tag) => (
-                        <span
-                          key={tag}
-                          className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-                {hasFacilities || filteredFacilities.length > 0 ? (
-                  <div className="space-y-2 rounded-xl border border-slate-100 bg-white p-4">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Facilities</p>
-                    <div className="flex flex-wrap gap-2">
-                      {(filteredFacilities.length > 0 ? filteredFacilities : facilities).slice(0, 12).map((facility) => (
-                        <span
-                          key={facility}
-                          className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700"
-                        >
-                          {facility}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-                {!hasBestFor && !hasFacilities && (isOwner || isAdmin) ? (
-                  <p className="text-xs text-slate-500">Owners can add facilities and best-for tags from Edit / Manage venue.</p>
-                ) : null}
-              </div>
-            </div>
-          </section>
-        )}
-
-        { (upcomingEvents.length > 0 || pastEvents.length > 0) ? (
-          <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="space-y-1">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Events &amp; announcements</p>
-              <h2 className="text-xl font-semibold text-slate-900">Updates from this venue</h2>
-            </div>
-            <div className="inline-flex rounded-full border border-slate-200 bg-slate-100 p-1 text-sm font-semibold text-slate-700">
-              <button
-                type="button"
-                className={`rounded-full px-3 py-1 ${eventsTab === "upcoming" ? "bg-white shadow-sm" : ""}`}
-                onClick={() => setEventsTab("upcoming")}
-              >
-                Upcoming
-              </button>
-              <button
-                type="button"
-                className={`rounded-full px-3 py-1 ${eventsTab === "past" ? "bg-white shadow-sm" : ""}`}
-                onClick={() => setEventsTab("past")}
-              >
-                Past
-              </button>
-            </div>
-
-            {eventsTab === "upcoming" ? (
-              eventsLoading ? (
-                <div className="flex items-center justify-center rounded-xl border border-slate-200 bg-white p-5 text-slate-500">
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Loading events…
-                </div>
-              ) : upcomingEvents.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-slate-200 bg-white p-5 text-sm text-slate-600">
-                  No upcoming events — check back soon.
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {upcomingEvents.map((event) => (
-                    <Card key={event.id} className="border border-slate-200 bg-white shadow-sm">
-                      <CardContent className="space-y-2 p-4">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div className="space-y-1">
-                            <p className="text-sm font-semibold text-slate-900">{event.title}</p>
-                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                              {formatEventDate(event.starts_at, event.ends_at)}
-                            </p>
-                          </div>
-                          {event.event_type ? (
-                            <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-700">
-                              {event.event_type}
-                            </span>
-                          ) : null}
-                        </div>
-                        {event.description ? (
-                          <p className="text-sm text-slate-600 line-clamp-3">{event.description}</p>
-                        ) : null}
-                        {event.ticket_info ? (
-                          <p className="text-xs font-semibold text-slate-700">Tickets: {event.ticket_info}</p>
-                        ) : null}
-                        <div className="flex flex-wrap items-center gap-3">
-                          {event.booking_url ? (
-                            <Button asChild size="sm" variant="outline" className="rounded-full">
-                              <a href={event.booking_url} target="_blank" rel="noreferrer">
-                                Book now
-                              </a>
-                            </Button>
-                          ) : event.website_url ? (
-                            <Button asChild size="sm" variant="outline" className="rounded-full">
-                              <a href={event.website_url} target="_blank" rel="noreferrer">
-                                More details
-                              </a>
-                            </Button>
-                          ) : null}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )
-            ) : pastEventsLoading ? (
-              <div className="flex items-center justify-center rounded-xl border border-slate-200 bg-white p-5 text-slate-500">
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Loading past events…
-              </div>
-            ) : pastEvents.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-slate-200 bg-white p-5 text-sm text-slate-600">
-                No past events yet.
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {pastEvents.map((event) => (
-                  <Card key={event.id} className="border border-slate-200 bg-white shadow-sm">
-                    <CardContent className="space-y-2 p-4">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="space-y-1">
-                          <p className="text-sm font-semibold text-slate-900">{event.title}</p>
-                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                            {formatEventDate(event.starts_at, event.ends_at)}
-                          </p>
-                        </div>
-                        {event.event_type ? (
-                          <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-700">
-                            {event.event_type}
-                          </span>
-                        ) : null}
-                      </div>
-                      {event.description ? (
-                        <p className="text-sm text-slate-500 line-clamp-3">{event.description}</p>
-                      ) : null}
-                      {event.ticket_info ? (
-                        <p className="text-xs font-semibold text-slate-600">Tickets: {event.ticket_info}</p>
-                      ) : null}
-                      <div className="flex flex-wrap items-center gap-3">
-                        {event.booking_url ? (
-                          <Button asChild size="sm" variant="outline" className="rounded-full">
-                            <a href={event.booking_url} target="_blank" rel="noreferrer">
-                              Book now
-                            </a>
-                          </Button>
-                        ) : event.website_url ? (
-                          <Button asChild size="sm" variant="outline" className="rounded-full">
-                            <a href={event.website_url} target="_blank" rel="noreferrer">
-                              More details
-                            </a>
-                          </Button>
-                        ) : null}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-                {pastHasMore ? (
-                  <div className="flex justify-center">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="rounded-full px-4"
-                      disabled={pastEventsLoading}
-                      onClick={() => venue && void loadPastEvents(venue.id, pastOffset, true)}
+                <p className="text-lg font-bold text-slate-900">
+                  {featuredCatch?.weight
+                    ? `${featuredCatch.weight}${featuredCatch.weight_unit === "kg" ? "kg" : "lb"} ${humanizeSpecies(featuredCatch.species)}`
+                    : "No venue record logged yet"}
+                </p>
+                {featuredCatch ? (
+                  <div className="mt-1 flex items-center justify-between gap-3">
+                    <Link
+                      to={`/profile/${featuredCatch.profiles?.username ?? featuredCatch.user_id}`}
+                      className="flex items-center gap-2"
                     >
-                      {pastEventsLoading ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Loading…
-                        </>
-                      ) : (
-                        "Load more past events"
-                      )}
-                    </Button>
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage
+                          src={
+                            featuredCatch.profiles?.avatar_path
+                              ? undefined
+                              : featuredCatch.profiles?.avatar_url ?? undefined
+                          }
+                        />
+                        <AvatarFallback>
+                          {featuredCatch.profiles?.username?.[0]?.toUpperCase() ?? "A"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="text-sm font-medium text-slate-900">
+                        {featuredCatch.profiles?.username ?? "Unknown angler"}
+                      </span>
+                    </Link>
+                    <span className="text-xs text-slate-500">
+                      {new Date(featuredCatch.created_at).toLocaleDateString(undefined, {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })}
+                    </span>
                   </div>
-                ) : null}
-              </div>
+                ) : (
+                  <p className="text-sm text-slate-600">Be the first to set a venue record here.</p>
+                )}
+                <div className="mt-auto">
+                  {featuredCatch ? (
+                    <Button asChild className="w-full">
+                      <Link to={`/catch/${featuredCatch.id}`}>View catch</Link>
+                    </Button>
+                  ) : (
+                    <Button asChild className="w-full">
+                      <Link to={`/add-catch${venue.slug ? `?venue=${venue.slug}` : ""}`}>Log a catch here</Link>
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <CardContent className="space-y-4 p-4">
+                <div className="space-y-1">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Venue stats</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Catches logged</p>
+                  <p className="text-sm font-bold text-slate-900">{totalCatches}</p>
+                  <p className="text-xs text-slate-600">{totalCatches > 0 ? "Total catches on ReelyRated" : "No catches logged yet"}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Last 30 days</p>
+                  <p className="text-sm font-bold text-slate-900">{recentWindow}</p>
+                  <div className="text-xs text-slate-600">
+                    {recentWindow === 0
+                      ? "No catches yet"
+                      : recentWindow === 1
+                      ? "1 catch this month"
+                      : recentWindow < 5
+                      ? "A few catches this month"
+                      : (
+                        <span className="inline-flex items-center gap-1">
+                          <Flame className="h-3.5 w-3.5 text-amber-500" />
+                          <span>Hot this month</span>
+                        </span>
+                      )}
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Top species here</p>
+                  {venue.top_species && venue.top_species.length > 0 ? (
+                    <div className="space-y-1">
+                      {venue.top_species.slice(0, 3).map((species) => (
+                        <p key={species} className="text-sm font-semibold text-slate-900">
+                          {humanizeSpecies(species)}
+                        </p>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-600">No species data yet</p>
+                  )}
+                  <p className="text-[11px] text-slate-500">Based on catches logged at this venue</p>
+                </div>
+              </CardContent>
+            </Card>
+            {(hasPlanContent || isOwner || isAdmin) && (
+              <section className="space-y-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="space-y-1">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Socials &amp; contact</p>
+                  <h2 className="text-xl font-semibold text-slate-900">Plan your visit</h2>
+                  <p className="text-sm text-slate-600">How to book, who to call, and what to expect on-site.</p>
+                </div>
+                <div className="space-y-4 rounded-xl border border-slate-100 bg-slate-50 p-4 text-sm text-slate-700">
+                  <div className="space-y-1">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Tickets &amp; pricing</p>
+                    {ticketType || displayPriceFrom ? (
+                      <p className="text-base font-semibold text-slate-900">
+                        {ticketType ? `${ticketType}` : ""}
+                        {ticketType && displayPriceFrom ? " • " : ""}
+                        {displayPriceFrom || ""}
+                      </p>
+                    ) : (
+                      <p className="text-sm text-slate-500">Ticket details coming soon.</p>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Contact</p>
+                    {contactPhone ? (
+                      <p className="font-semibold text-slate-900">Call: {contactPhone}</p>
+                    ) : (
+                      <p className="text-sm text-slate-500">Phone number not provided.</p>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    {websiteUrl ? (
+                      <Button variant="outline" size="sm" className="rounded-full" asChild>
+                        <a href={websiteUrl} target="_blank" rel="noreferrer">
+                          Visit website
+                        </a>
+                      </Button>
+                    ) : null}
+                    {bookingUrl ? (
+                      <Button variant="outline" size="sm" className="rounded-full" asChild>
+                        <a href={bookingUrl} target="_blank" rel="noreferrer">
+                          Book online
+                        </a>
+                      </Button>
+                    ) : null}
+                  </div>
+                  {!(ticketType || displayPriceFrom || contactPhone || websiteUrl || bookingUrl) && (isOwner || isAdmin) ? (
+                    <p className="text-xs text-slate-500">Owners can add contact and booking info from Edit / Manage venue.</p>
+                  ) : null}
+                  {hasBestFor ? (
+                    <div className="space-y-2 rounded-xl border border-slate-100 bg-white p-4">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Best for</p>
+                      <div className="flex flex-wrap gap-2">
+                        {bestForTags.slice(0, 12).map((tag) => (
+                          <span
+                            key={tag}
+                            className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                  {hasFacilities || filteredFacilities.length > 0 ? (
+                    <div className="space-y-2 rounded-xl border border-slate-100 bg-white p-4">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Facilities</p>
+                      <div className="flex flex-wrap gap-2">
+                        {(filteredFacilities.length > 0 ? filteredFacilities : facilities).slice(0, 12).map((facility) => (
+                          <span
+                            key={facility}
+                            className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700"
+                          >
+                            {facility}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                  {!hasBestFor && !hasFacilities && (isOwner || isAdmin) ? (
+                    <p className="text-xs text-slate-500">Owners can add facilities and best-for tags from Edit / Manage venue.</p>
+                  ) : null}
+                </div>
+              </section>
             )}
-          </section>
-        ) : null}
+            { (upcomingEvents.length > 0 || pastEvents.length > 0) ? (
+              <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="space-y-1">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Events &amp; announcements</p>
+                  <h2 className="text-xl font-semibold text-slate-900">Updates from this venue</h2>
+                </div>
+                <div className="inline-flex rounded-full border border-slate-200 bg-slate-100 p-1 text-sm font-semibold text-slate-700">
+                  <button
+                    type="button"
+                    className={`rounded-full px-3 py-1 ${eventsTab === "upcoming" ? "bg-white shadow-sm" : ""}`}
+                    onClick={() => setEventsTab("upcoming")}
+                  >
+                    Upcoming
+                  </button>
+                  <button
+                    type="button"
+                    className={`rounded-full px-3 py-1 ${eventsTab === "past" ? "bg-white shadow-sm" : ""}`}
+                    onClick={() => setEventsTab("past")}
+                  >
+                    Past
+                  </button>
+                </div>
+
+                {eventsTab === "upcoming" ? (
+                  eventsLoading ? (
+                    <div className="flex items-center justify-center rounded-xl border border-slate-200 bg-white p-5 text-slate-500">
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Loading events…
+                    </div>
+                  ) : upcomingEvents.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-slate-200 bg-white p-5 text-sm text-slate-600">
+                      No upcoming events — check back soon.
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {upcomingEvents.map((event) => (
+                        <Card key={event.id} className="border border-slate-200 bg-white shadow-sm">
+                          <CardContent className="space-y-2 p-4">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div className="space-y-1">
+                                <p className="text-sm font-semibold text-slate-900">{event.title}</p>
+                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                  {formatEventDate(event.starts_at, event.ends_at)}
+                                </p>
+                              </div>
+                              {event.event_type ? (
+                                <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-700">
+                                  {event.event_type}
+                                </span>
+                              ) : null}
+                            </div>
+                            {event.description ? (
+                              <p className="text-sm text-slate-600 line-clamp-3">{event.description}</p>
+                            ) : null}
+                            {event.ticket_info ? (
+                              <p className="text-xs font-semibold text-slate-700">Tickets: {event.ticket_info}</p>
+                            ) : null}
+                            <div className="flex flex-wrap items-center gap-3">
+                              {event.booking_url ? (
+                                <Button asChild size="sm" variant="outline" className="rounded-full">
+                                  <a href={event.booking_url} target="_blank" rel="noreferrer">
+                                    Book now
+                                  </a>
+                                </Button>
+                              ) : event.website_url ? (
+                                <Button asChild size="sm" variant="outline" className="rounded-full">
+                                  <a href={event.website_url} target="_blank" rel="noreferrer">
+                                    More details
+                                  </a>
+                                </Button>
+                              ) : null}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )
+                ) : pastEventsLoading ? (
+                  <div className="flex items-center justify-center rounded-xl border border-slate-200 bg-white p-5 text-slate-500">
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Loading past events…
+                  </div>
+                ) : pastEvents.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-slate-200 bg-white p-5 text-sm text-slate-600">
+                    No past events yet.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {pastEvents.map((event) => (
+                      <Card key={event.id} className="border border-slate-200 bg-white shadow-sm">
+                        <CardContent className="space-y-2 p-4">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="space-y-1">
+                              <p className="text-sm font-semibold text-slate-900">{event.title}</p>
+                              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                {formatEventDate(event.starts_at, event.ends_at)}
+                              </p>
+                            </div>
+                            {event.event_type ? (
+                              <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-700">
+                                {event.event_type}
+                              </span>
+                            ) : null}
+                          </div>
+                          {event.description ? (
+                            <p className="text-sm text-slate-500 line-clamp-3">{event.description}</p>
+                          ) : null}
+                          {event.ticket_info ? (
+                            <p className="text-xs font-semibold text-slate-600">Tickets: {event.ticket_info}</p>
+                          ) : null}
+                          <div className="flex flex-wrap items-center gap-3">
+                            {event.booking_url ? (
+                              <Button asChild size="sm" variant="outline" className="rounded-full">
+                                <a href={event.booking_url} target="_blank" rel="noreferrer">
+                                  Book now
+                                </a>
+                              </Button>
+                            ) : event.website_url ? (
+                              <Button asChild size="sm" variant="outline" className="rounded-full">
+                                <a href={event.website_url} target="_blank" rel="noreferrer">
+                                  More details
+                                </a>
+                              </Button>
+                            ) : null}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                    {pastHasMore ? (
+                      <div className="flex justify-center">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="rounded-full px-4"
+                          disabled={pastEventsLoading}
+                          onClick={() => venue && void loadPastEvents(venue.id, pastOffset, true)}
+                        >
+                          {pastEventsLoading ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Loading…
+                            </>
+                          ) : (
+                            "Load more past events"
+                          )}
+                        </Button>
+                      </div>
+                    ) : null}
+                  </div>
+                )}
+              </section>
+            ) : null}
+          </div>
+        </div>
 
         <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="space-y-1">

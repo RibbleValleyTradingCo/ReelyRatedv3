@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Loader2, MapPin, Image as ImageIcon, Search } from "lucide-react";
+import { Loader2, MapPin, Image as ImageIcon, Search, Flame, Star } from "lucide-react";
 import { getPublicAssetUrl } from "@/lib/storage";
 import { FeedSelect } from "@/components/feed/FeedSelect";
 
@@ -23,11 +23,13 @@ type Venue = {
   facilities: string[] | null;
   total_catches: number | null;
   recent_catches_30d: number | null;
+  avg_rating: number | null;
+  rating_count: number | null;
 };
 
 type VenueThumbnail = { url: string; alt: string } | null;
 
-const VenueThumbnail = ({ venue, thumbnail }: { venue: Venue; thumbnail?: VenueThumbnail }) => {
+const VenueThumbnail = ({ venue, thumbnail, ticketType }: { venue: Venue; thumbnail?: VenueThumbnail; ticketType?: string | null }) => {
   return (
     <div className="relative w-full overflow-hidden rounded-b-none bg-gradient-to-br from-slate-100 to-slate-200 aspect-[4/3]">
       {thumbnail?.url ? (
@@ -48,6 +50,11 @@ const VenueThumbnail = ({ venue, thumbnail }: { venue: Venue; thumbnail?: VenueT
           </div>
         </div>
       )}
+      {ticketType ? (
+        <span className="absolute left-3 top-3 inline-flex items-center rounded-md border border-sky-100 bg-sky-50/95 px-3 py-1 text-xs font-semibold text-sky-800 shadow-sm">
+          {ticketType}
+        </span>
+      ) : null}
     </div>
   );
 };
@@ -63,7 +70,7 @@ const VenuesIndex = () => {
   const [hasMore, setHasMore] = useState(true);
   const [ticketTypeFilter, setTicketTypeFilter] = useState<string>("all");
   const [carpOnly, setCarpOnly] = useState<boolean>(false);
-  const [sortOption, setSortOption] = useState<"name" | "most_catches" | "most_active">("name");
+  const [sortOption, setSortOption] = useState<"name" | "most_catches" | "most_active" | "highest_rated">("name");
   // Thumbnail lookup keyed by venue.id; null marks "no image found" to avoid refetching.
   const [thumbnails, setThumbnails] = useState<Record<string, VenueThumbnail>>({});
   const requestedThumbnails = useRef<Set<string>>(new Set());
@@ -230,6 +237,20 @@ const VenuesIndex = () => {
         return diff !== 0 ? diff : byName(a, b);
       });
     }
+    if (sortOption === "highest_rated") {
+      return [...filtered].sort((a, b) => {
+        const aRated = (a.rating_count ?? 0) > 0;
+        const bRated = (b.rating_count ?? 0) > 0;
+        if (aRated && !bRated) return -1;
+        if (!aRated && bRated) return 1;
+        if (!aRated && !bRated) return byName(a, b);
+        const avgDiff = toNumber(b.avg_rating) - toNumber(a.avg_rating);
+        if (avgDiff !== 0) return avgDiff;
+        const countDiff = toNumber(b.rating_count) - toNumber(a.rating_count);
+        if (countDiff !== 0) return countDiff;
+        return byName(a, b);
+      });
+    }
     return [...filtered].sort(byName);
   }, [carpOnly, sortOption, ticketTypeFilter, venues]);
 
@@ -289,6 +310,7 @@ const VenuesIndex = () => {
                 { value: "name", label: "Sort: A–Z (name)" },
                 { value: "most_catches", label: "Sort: Most catches" },
                 { value: "most_active", label: "Sort: Most active (last 30 days)" },
+                { value: "highest_rated", label: "Sort: Highest rated" },
               ]}
               onChange={(value) => setSortOption(value as typeof sortOption)}
             />
@@ -340,15 +362,6 @@ const VenuesIndex = () => {
               const chipDisplay = [...uniqueBestFor.slice(0, 3), ...uniqueFacilities].slice(0, 4);
               const total = venue.total_catches ?? 0;
               const recent = venue.recent_catches_30d ?? 0;
-              const totalLabel = total > 0 ? `${total} catch${total === 1 ? "" : "es"} logged` : "Undiscovered – no catches logged yet";
-              let recentLabel = "";
-              if (total === 0) {
-                recentLabel = "Be the first to log a catch here";
-              } else if (recent > 0) {
-                recentLabel = `${recent} in the last 30 days`;
-              } else {
-                recentLabel = "Quiet recently";
-              }
               const ticketType = venue.ticket_type?.trim();
               const priceFrom = getDisplayPriceFrom(venue.price_from);
               const location = venue.location?.trim() || "UK stillwater venue";
@@ -356,13 +369,21 @@ const VenuesIndex = () => {
                 venue.short_tagline?.trim() ||
                 "Community catches coming soon. Imported from Add Catch venue options.";
               const thumbnail = thumbnails[venue.id];
+              const hasRatings = (venue.rating_count ?? 0) > 0;
+              const formattedAvg = venue.avg_rating != null ? Number(venue.avg_rating).toFixed(1) : null;
+              let isHot = false;
+              if (recent >= 5 && recent < 15) {
+                isHot = true;
+              } else if (recent >= 15) {
+                isHot = true;
+              }
 
               return (
                 <Card
                   key={venue.id}
                   className="flex h-full flex-col overflow-hidden border border-slate-200 bg-white shadow-sm transition hover:-translate-y-px hover:shadow-sm focus-within:shadow-md"
                 >
-                  <VenueThumbnail venue={venue} thumbnail={thumbnail} />
+                  <VenueThumbnail venue={venue} thumbnail={thumbnail} ticketType={ticketType} />
                   <CardHeader className="pb-2">
                     <div className="flex items-start justify-between gap-3">
                       <div className="space-y-1">
@@ -371,12 +392,14 @@ const VenuesIndex = () => {
                           <MapPin className="h-4 w-4 text-slate-400" />
                           {location}
                         </p>
+                        {hasRatings && formattedAvg ? (
+                          <div className="flex items-center gap-1 text-sm text-slate-700">
+                            <span className="font-semibold">{formattedAvg}</span>
+                            <Star className="h-3 w-3 fill-amber-300 text-amber-300" />
+                            <span className="text-xs text-slate-500">({venue.rating_count})</span>
+                          </div>
+                        ) : null}
                       </div>
-                      {ticketType ? (
-                        <span className="rounded-md border border-sky-100 bg-sky-50 px-3 py-1 text-[11px] font-semibold text-sky-800">
-                          {ticketType}
-                        </span>
-                      ) : null}
                     </div>
                     <p className="text-sm text-slate-600 line-clamp-2">{tagline}</p>
                   </CardHeader>
@@ -389,13 +412,11 @@ const VenuesIndex = () => {
                         </div>
                         <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
                           <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Last 30 days</p>
-                          <p className="text-sm font-bold text-slate-900">{recent}</p>
+                          <p className="flex items-center gap-1 text-sm font-bold text-slate-900">
+                            {recent}
+                            {isHot ? <Flame className="h-3.5 w-3.5 text-amber-500" /> : null}
+                          </p>
                         </div>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-600">
-                        <span className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 font-semibold text-slate-700">{totalLabel}</span>
-                        <span className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1">{recentLabel}</span>
-                        {/* TODO Phase 2: rating, heaviest catch, last catch age */}
                       </div>
                     </div>
                     {chipDisplay.length > 0 ? (
@@ -410,20 +431,17 @@ const VenuesIndex = () => {
                         ))}
                       </div>
                     ) : null}
-                    <div className="mt-auto flex items-center justify-between gap-3">
-                      {priceFrom ? (
-                        <span className="flex items-baseline gap-1 text-xs text-slate-600">
-                          {!priceFrom.toLowerCase().startsWith("from") ? (
-                            <span className="font-semibold text-slate-500">From</span>
-                          ) : null}
+                    <div className="mt-auto flex items-center justify-between gap-3 text-xs text-slate-600">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {priceFrom ? (
                           <span className="text-sm font-semibold text-slate-900">
                             {priceFrom.replace(/^from\s*/i, "").trim() || priceFrom}
                           </span>
-                        </span>
-                      ) : (
-                        <span className="text-xs text-slate-400">Pricing to be confirmed</span>
-                      )}
-                      <Button asChild className="w-full rounded-full">
+                        ) : (
+                          <span className="text-xs text-slate-400">Price info not available</span>
+                        )}
+                      </div>
+                      <Button asChild className="w-full rounded-full text-sm font-semibold">
                         <Link to={`/venues/${venue.slug}`}>View venue</Link>
                       </Button>
                     </div>

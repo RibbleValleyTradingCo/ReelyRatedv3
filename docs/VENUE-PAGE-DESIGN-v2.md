@@ -15,29 +15,31 @@ _Last updated: 2025-12-01. Source of truth for /venues and /venues/:slug. Backen
 - **Search bar:** free-text over venue name, town, county (postcode if stored).
 - **Filters (first iteration):**
   - Location: county/region.
-  - Ticket type: `day_ticket`, `club`, `syndicate`.
-  - Water type: `stillwater`, `reservoir`, `river`, `canal`.
-  - Species (limited): Carp, Pike, Perch, Barbel, Catfish.
-  - Facilities: Toilets, Café, Tackle shop, Night fishing.
+  - Ticket type: `day_ticket`, `club`, `syndicate` (current build: client-side dropdown).
+  - Water type: `stillwater`, `reservoir`, `river`, `canal` (future).
+  - Species (limited): Carp, Pike, Perch, Barbel, Catfish (future).
+  - Facilities: Toilets, Café, Tackle shop, Night fishing (future).
 - **Sort options:**
-  - Most catches logged.
-  - Most active recently (catches in last 30 days).
-  - Highest rated (once venue ratings exist).
+  - Name A–Z (current default, client-side).
+  - Most catches logged (client-side on total_catches).
+  - Most active recently (client-side on recent_catches_30d).
+  - Highest rated (future once venue ratings exist on cards).
 
 ### 3. Venue Cards
 
 - **Layout & content:**
   - Title: `name`.
   - Subtitle: location (e.g. “Kent, UK” or “Town – County”).
-  - Thumbnail:
-    - Prefer venue hero photo (from venue_photos or hero_image if present).
-    - Fallback: best recent catch photo for this venue.
-    - Fixed aspect ratio, object-cover, no warping.
+  - Thumbnail (4:3, object-cover):
+    - Prefer venue hero photo (`get_venue_photos`).
+    - Fallback: most recent catch image (`get_venue_recent_catches`).
+    - Otherwise: neutral placeholder.
+    - Ticket type badge (e.g. “Day ticket”) overlaid top-left.
   - **Headline stats (read-only, community-derived):**
-    - Average rating + count (future venue_ratings).
-    - Total catches logged.
+    - Total catches logged (`total_catches`).
+    - “Last 30 days” (`recent_catches_30d`) with a small flame icon when recent activity crosses simple thresholds (“hot venue”).
     - Heaviest catch: weight + species (top-catches RPC).
-    - “Last catch X days ago” (recent-catches RPC).
+    - Average rating + count: future venue_ratings (currently only on venue detail, not on cards).
   - **Tags:**
     - Species tags (up to 2–3).
     - Venue type: Day ticket / Syndicate / Club, etc.
@@ -65,6 +67,7 @@ _Last updated: 2025-12-01. Source of truth for /venues and /venues/:slug. Backen
 - Map view with pins.
 - Trending / “hot this week” strips.
 - Distance-based sort (“Closest to me”).
+- Ratings on directory cards (ratings currently shown only on venue detail; directory ratings/filtering remain future).
 
 ---
 
@@ -83,7 +86,7 @@ _Last updated: 2025-12-01. Source of truth for /venues and /venues/:slug. Backen
   - Title: `name`.
   - Location pill: `location`.
   - Short tagline: `short_tagline` (fallback: trimmed description).
-  - Ratings (future-ready): average stars + count (“Based on N ratings”).
+  - Ratings: micro summary line in the hero stats area (e.g. `4.7 ⭐ (23)` when present, otherwise “No ratings yet”). “Your rating” control available for logged-in users.
   - **Headline stats row (compact 3 items):** total catches, catches in last 30 days, heaviest catch (weight + species).
   - CTAs: View on maps, Visit website, Call venue, Book now, Log a catch (if logged-in), Edit/Manage (admin/owner).
 - **Right column (primary visual):**
@@ -215,6 +218,7 @@ These flows are already implemented and should be preserved when iterating on th
 - **Implemented in v2:**
 
   - Hero layout with breadcrumb, name, location, tagline, CTAs, and featured image card.
+  - Ratings surfaced on venue detail hero as a micro summary (avg + count) with “Your rating” control backed by venue_ratings/venue_stats.
   - About section using owner/admin-managed description/tagline.
   - “Plan your visit” / socials & contact block with ticket type, price snippet, website/booking buttons, phone, and facilities/best-for chips.
   - Venue gallery backed by `venue_photos` with catch-photo fallback (public page is read-only).
@@ -225,6 +229,7 @@ These flows are already implemented and should be preserved when iterating on th
 
 - **Planned / not yet implemented:**
   - Venue ratings & reviews (`venue_ratings` table, rating summary, “Your rating” UI, review list, breakdown).
+  - Ratings on venue cards in the directory and related sort/filter options.
   - Rich basic info on the venue page: address/town/postcode, water type, opening times.
   - Rules & key policies block (night fishing, max rods, key bans, walk-on vs pre-book).
   - Q&A / discussion per venue (questions, answers, upvotes, pinned info).

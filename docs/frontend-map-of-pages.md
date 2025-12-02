@@ -63,7 +63,7 @@ Supabase: catches (created_at, caught_at, weight, location, bait, method, time_o
 src/pages/VenuesIndex.tsx – Venues directory  
 Route: /venues  
 Purpose: Venue discovery (cards aimed at conversion/bookability).  
-Key features: search + pagination; cards show venue name/location/tagline (short_tagline/description fallback), ticket_type, price_from, chips from metadata (best_for_tags, facilities), stats from venue_stats (total/recent catches), top_species, and thumbnails from venue photos or recent catch images.  
+Key features: search + pagination; cards show venue name/location/tagline (short_tagline/description fallback), ticket_type badge overlaid on the thumbnail, price_from, chips from metadata (best_for_tags, facilities), stats from venue_stats (total/recent catches) with an optional flame icon on the “Last 30 days” tile for hot venues, top_species, and thumbnails (venue photo → recent catch image fallback → placeholder). Bottom strip is price only plus “View venue” CTA. Filters/sort are client-side: ticket type (all/day ticket/syndicate/club), carp-friendly toggle (best_for contains “carp”), sort by name/most catches/most active.  
 Supabase: get_venues RPC (SECURITY INVOKER; returns id, slug, name, location, short_tagline, ticket_type, price_from, best_for_tags, facilities, total_catches, recent_catches_30d, headline_pb_* fields, top_species; avg_rating/rating_count now available via venue_stats but not yet used on the cards), get_venue_photos (first image_path for thumbnail), get_venue_recent_catches (image_url fallback thumbnail).
 
 src/pages/VenueDetail.tsx – Venue detail  
