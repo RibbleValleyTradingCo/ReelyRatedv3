@@ -5,6 +5,31 @@ SET search_path = public, extensions;
 
 DO $$
 BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE c.relname = 'venue_stats'
+      AND n.nspname = 'public'
+  ) THEN
+    CREATE VIEW public.venue_stats AS
+    SELECT
+      c.venue_id,
+      COUNT(*)::integer AS total_catches,
+      COUNT(*) FILTER (WHERE c.created_at >= now() - interval '30 days')::integer AS recent_catches_30d,
+      MAX(c.weight) AS headline_pb_weight,
+      MAX(c.weight_unit) AS headline_pb_unit,
+      MAX(c.species) AS headline_pb_species,
+      ARRAY(SELECT DISTINCT c2.species FROM public.catches c2 WHERE c2.venue_id = c.venue_id AND c2.species IS NOT NULL) AS top_species
+    FROM public.catches c
+    WHERE c.venue_id IS NOT NULL
+    GROUP BY c.venue_id;
+  END IF;
+END
+$$;
+
+DO $$
+BEGIN
   IF EXISTS (
     SELECT 1
     FROM pg_proc p
