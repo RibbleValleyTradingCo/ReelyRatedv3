@@ -3,6 +3,20 @@
 
 SET search_path = public, extensions;
 
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_type t
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE t.typname = 'weight_unit'
+      AND n.nspname = 'public'
+  ) THEN
+    CREATE TYPE public.weight_unit AS ENUM ('kg', 'lb_oz');
+  END IF;
+END
+$$;
+
 -- List venues (published only)
 CREATE OR REPLACE FUNCTION public.get_venues(
   p_search text DEFAULT NULL,
